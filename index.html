@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Questionnaire pré-consultation — Fièvre</title>
+<title>Questionnaire pré-consultation — Sélecteur de motif</title>
 <style>
   :root{--red:#b91c1c;--redbg:#fee2e2;--border:#e5e7eb;--fg:#111;--muted:#6b7280;}
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;margin:0;padding:24px;background:#f7f7f8;color:var(--fg)}
@@ -12,156 +12,347 @@
   h2{font-size:18px;margin:12px 0 8px}
   .muted{color:var(--muted);font-size:12px}
   .btn{appearance:none;border:1px solid #111;background:#111;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+  .btn.secondary{background:#fff;color:#111}
   .row{margin:10px 0}
   input,textarea,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chip{border:1px solid #d1d5db;border-radius:999px;padding:8px 12px;cursor:pointer;background:#fff}
   .chip.selected{background:#111;color:#fff;border-color:#111}
   .footer{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+  .tile{border:1px solid var(--border);border-radius:12px;padding:14px;background:#fff}
   .flagbox{padding:12px;border-radius:12px;background:var(--redbg);border:1px solid #fecaca;margin:10px 0}
   .flagtitle{font-weight:800;color:var(--red);margin-bottom:6px}
   .flagreason{color:var(--red);font-weight:700}
   .ok{padding:10px 12px;border-radius:12px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;margin:10px 0;font-weight:600}
   .summary{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+  @media print{ body{background:#fff;padding:0}.card{border:none;box-shadow:none;margin:0;max-width:none} #questions{display:none} #printable{display:block} .footer{display:none} }
 </style>
 </head>
 <body>
   <div class="card">
-    <h1>Questionnaire pré-consultation — Fièvre</h1>
-    <div class="muted">Version démo. Ce formulaire ne remplace pas un avis médical.</div>
+    <h1>Questionnaire pré-consultation</h1>
+    <div class="muted">Choisissez un motif. En cas d’urgence, appelez le 15.</div>
   </div>
 
-  <div id="questions" class="card"></div>
+  <!-- Accueil motif -->
+  <div id="home" class="card">
+    <h2>Motif de consultation</h2>
+    <div class="grid">
+      <div class="tile">
+        <strong>Fièvre</strong>
+        <p class="muted">Durée, température, signes associés, drapeaux rouges.</p>
+        <button class="btn" onclick="startMotif('fievre')">Commencer</button>
+      </div>
+      <div class="tile">
+        <strong>Douleur</strong>
+        <p class="muted">Localisation, durée, intensité, signes d’alarme.</p>
+        <button class="btn" onclick="startMotif('douleur')">Commencer</button>
+      </div>
+      <div class="tile">
+        <strong>Mal de tête</strong>
+        <p class="muted">Début, caractère, contextes, signes de gravité.</p>
+        <button class="btn" onclick="startMotif('cephalees')">Commencer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone questions et zone synthèse -->
+  <div id="questions" class="card" style="display:none"></div>
   <div id="printable" class="card" style="display:none"></div>
 
 <script>
+/*** PARAMÈTRES ***/
 const MSSANTE_TO = "nom.prenom@votre-cabinet.mssante.fr"; // <-- à personnaliser
 
-const NODES = [
-  { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.", next:"DUREE" },
-  { id:"DUREE", type:"duration", label:"Depuis quand avez-vous de la fièvre ?", next:"TMAX" },
-  { id:"TMAX", type:"number", label:"Température maximale mesurée (°C)", min:35, max:43.5, precision:1, next:[
-      { if:"value>=40", goto:"ALERTE_T40" },
-      { else:"MODE" }
-    ]
-  },
-  { id:"MODE", type:"single_select", label:"Comment la température a-t-elle été mesurée ?", options:["Frontale","Auriculaire","Buccale","Rectale","Axillaire","Je ne sais pas"], next:"EVOL" },
-  { id:"EVOL", type:"single_select", label:"Comment évolue votre fièvre ?", options:["Continue","Par pics","Je ne sais pas"], next:"SYMPT" },
-  { id:"SYMPT", type:"multi_select", label:"Avez-vous un de ces signes ?", options:[
-      {code:"dyspnee",label:"Essoufflement"},
-      {code:"douleur_thx",label:"Douleur thoracique"},
-      {code:"raideur",label:"Raideur de nuque"},
-      {code:"purpura",label:"Taches violettes qui ne disparaissent pas"},
-      {code:"confusion",label:"Somnolence ou confusion"},
-      {code:"toux",label:"Toux"},
-      {code:"digestif",label:"Vomissements/diarrhée"},
-      {code:"eruption",label:"Éruption cutanée"}
+/*** MODÈLES DE QUESTIONNAIRES ***/
+const MODELS = {
+  fievre: {
+    titre: "Fièvre",
+    nodes: [
+      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.", next:"DUREE" },
+      { id:"DUREE", type:"duration", label:"Depuis quand avez-vous de la fièvre ?", next:"TMAX" },
+      { id:"TMAX", type:"number", label:"Température maximale mesurée (°C)", next:[
+          { if:"value>=40", goto:"ALERTE_T40" },
+          { else:"MODE" }
+        ]
+      },
+      { id:"MODE", type:"single_select", label:"Comment la température a-t-elle été mesurée ?", options:["Frontale","Auriculaire","Buccale","Rectale","Axillaire","Je ne sais pas"], next:"EVOL" },
+      { id:"EVOL", type:"single_select", label:"Comment évolue votre fièvre ?", options:["Continue","Par pics","Je ne sais pas"], next:"SYMPT" },
+      { id:"SYMPT", type:"multi_select", label:"Avez-vous un de ces signes ?", options:[
+          {code:"dyspnee",label:"Essoufflement"},
+          {code:"douleur_thx",label:"Douleur thoracique"},
+          {code:"raideur",label:"Raideur de nuque"},
+          {code:"purpura",label:"Taches violettes persistantes"},
+          {code:"confusion",label:"Somnolence / confusion"},
+          {code:"toux",label:"Toux"},
+          {code:"digestif",label:"Vomissements / diarrhée"},
+          {code:"eruption",label:"Éruption cutanée"}
+        ],
+        next:[
+          { if:"any(['dyspnee','douleur_thx','raideur','purpura','confusion'])", goto:"ALERTE_SIGNES" },
+          { else:"CONTEXTE" }
+        ]
+      },
+      { id:"CONTEXTE", type:"multi_select", label:"Contexte récent", options:["Retour de voyage","Contact malade","Vaccination récente","Exposition professionnelle","Aucun"], next:"RISQUES" },
+      { id:"RISQUES", type:"multi_select", label:"Facteurs de risque", options:["Grossesse","Âge < 3 mois","Âge > 75 ans","Immunodépression","Maladie chronique","Aucun"],
+        next:[
+          { if:"any(['Grossesse','Âge < 3 mois','Immunodépression'])", goto:"ALERTE_RISQUE" },
+          { else:"TRAIT" }
+        ]
+      },
+      { id:"TRAIT", type:"text", label:"Traitements pris (nom, dose, efficacité)", next:"SYNTHESE" },
+      { id:"ALERTE_T40", type:"flag", level:"red", reason:"Température ≥ 40 °C", next:"MODE" },
+      { id:"ALERTE_SIGNES", type:"flag", level:"red", reason:"Signes d’alerte associés", next:"CONTEXTE" },
+      { id:"ALERTE_RISQUE", type:"flag", level:"red", reason:"Situation à risque (grossesse/nourrisson/immunodépression)", next:"TRAIT" },
+      { id:"SYNTHESE", type:"summary" }
     ],
-    next:[
-      { if:"any(['dyspnee','douleur_thx','raideur','purpura','confusion'])", goto:"ALERTE_SIGNES" },
-      { else:"CONTEXTE" }
-    ]
+    summary: (A, any) => [
+      "Motif : Fièvre",
+      "Durée : "+(A.DUREE || "(non précisée)"),
+      "Température max : "+(A.TMAX || "(non précisée)")+" °C (mesure : "+(A.MODE||"—")+")",
+      "Évolution : "+(A.EVOL||"—"),
+      "Symptômes associés : "+list(A.SYMPT),
+      "Contexte : "+list(A.CONTEXTE),
+      "Facteurs de risque : "+list(A.RISQUES),
+      "Traitements : "+(A.TRAIT||"Aucun")
+    ].join("\n"),
+    extraAlerts: (A, any) => {
+      const arr=[];
+      if(parseFloat(A.TMAX)>=40) arr.push("Température ≥ 40 °C");
+      if(any(['dyspnee','douleur_thx','raideur','purpura','confusion'])) arr.push("Signes d’alerte associés");
+      return arr;
+    }
   },
-  { id:"CONTEXTE", type:"multi_select", label:"Contexte récent", options:["Retour de voyage","Contact malade","Vaccination récente","Exposition professionnelle","Aucun"], next:"RISQUES" },
-  { id:"RISQUES", type:"multi_select", label:"Facteurs de risque", options:["Grossesse","Âge < 3 mois","Âge > 75 ans","Immunodépression","Maladie chronique","Aucun"],
-    next:[
-      { if:"any(['Grossesse','Âge < 3 mois','Immunodépression'])", goto:"ALERTE_RISQUE" },
-      { else:"TRAIT" }
-    ]
-  },
-  { id:"TRAIT", type:"text", label:"Traitements pris", next:"SYNTHESE" },
-  { id:"ALERTE_T40", type:"flag", level:"red", reason:"Température ≥ 40 °C", next:"MODE" },
-  { id:"ALERTE_SIGNES", type:"flag", level:"red", reason:"Signes d'alerte associés", next:"CONTEXTE" },
-  { id:"ALERTE_RISQUE", type:"flag", level:"red", reason:"Situation à risque", next:"TRAIT" },
-  { id:"SYNTHESE", type:"summary" }
-];
 
+  douleur: {
+    titre: "Douleur",
+    nodes: [
+      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation douleur. En cas d’urgence, appelez le 15.", next:"LOCALISATION" },
+      { id:"LOCALISATION", type:"single_select", label:"Où est la douleur ?", options:["Tête","Poitrine","Abdomen","Dos","Membre","Autre"], next:"DUREE" },
+      { id:"DUREE", type:"duration", label:"Depuis quand ?", next:"INTENSITE" },
+      { id:"INTENSITE", type:"number", label:"Intensité (0 à 10)", next:[
+          { if:"value>=8", goto:"ALERTE_INTENSE" },
+          { else:"CARACTERE" }
+        ]
+      },
+      { id:"CARACTERE", type:"multi_select", label:"Caractère", options:["Brûlure","Piqûre","Crampes","Poids","Décharge","Pulsatile"], next:"SIGNES" },
+      { id:"SIGNES", type:"multi_select", label:"Signes associés", options:[
+          {code:"fievre",label:"Fièvre"},
+          {code:"dyspnee",label:"Essoufflement"},
+          {code:"deficit",label:"Déficit neurologique"},
+          {code:"emv",label:"Altération de conscience"}
+        ], next:[
+          { if:"any(['dyspnee','deficit','emv'])", goto:"ALERTE_SIGNES" },
+          { else:"TRAIT" }
+        ]
+      },
+      { id:"TRAIT", type:"text", label:"Qu’avez-vous pris ? (nom, dose, effet)", next:"SYNTHESE" },
+      { id:"ALERTE_INTENSE", type:"flag", level:"red", reason:"Douleur intense ≥ 8/10", next:"CARACTERE" },
+      { id:"ALERTE_SIGNES", type:"flag", level:"red", reason:"Signes d’alerte associés (respiratoire/neurologique)", next:"TRAIT" },
+      { id:"SYNTHESE", type:"summary" }
+    ],
+    summary: (A) => [
+      "Motif : Douleur",
+      "Localisation : "+(A.LOCALISATION||"—"),
+      "Durée : "+(A.DUREE||"(non précisée)"),
+      "Intensité : "+(A.INTENSITE||"—")+"/10",
+      "Caractère : "+list(A.CARACTERE),
+      "Signes associés : "+list(A.SIGNES),
+      "Traitements : "+(A.TRAIT||"Aucun")
+    ].join("\n"),
+    extraAlerts: (A, any) => {
+      const arr=[]; if(parseFloat(A.INTENSITE)>=8) arr.push("Douleur intense ≥ 8/10");
+      if(any(['dyspnee','deficit','emv'])) arr.push("Signes d’alerte associés");
+      return arr;
+    }
+  },
+
+  cephalees: {
+    titre: "Mal de tête",
+    nodes: [
+      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation pour céphalées. Appelez le 15 en cas d’urgence.", next:"DEBUT" },
+      { id:"DEBUT", type:"single_select", label:"Début de la douleur", options:["Brutal (coup de tonnerre)","Progressif","Récurrent (déjà connu)"], next:[
+          { if:"eq('Brutal (coup de tonnerre)')", goto:"ALERTE_BRUTAL" },
+          { else:"CONTEXTE" }
+        ]
+      },
+      { id:"CONTEXTE", type:"multi_select", label:"Contexte", options:[
+          {code:"fievre",label:"Fièvre"},
+          {code:"raideur",label:"Raideur de nuque"},
+          {code:"trauma",label:"Traumatisme récent"},
+          {code:"grossesse",label:"Grossesse/post-partum"},
+          {code:"anticoag",label:"Anticoagulants"}
+        ], next:[
+          { if:"any(['raideur','trauma','grossesse','anticoag'])", goto:"ALERTE_CONTEXT" },
+          { else:"SYMPT" }
+        ]
+      },
+      { id:"SYMPT", type:"multi_select", label:"Signes associés", options:[
+          {code:"deficit",label:"Déficit neuro (faiblesse, trouble parole/vision)"},
+          {code:"vomit",label:"Vomissements en jet"},
+          {code:"photoph",label:"Photophobie"}
+        ], next:[
+          { if:"any(['deficit'])", goto:"ALERTE_NEURO" },
+          { else:"TRAIT" }
+        ]
+      },
+      { id:"TRAIT", type:"text", label:"Traitements pris (nom, dose, effet)", next:"SYNTHESE" },
+      { id:"ALERTE_BRUTAL", type:"flag", level:"red", reason:"Céphalée d’installation brutale", next:"CONTEXTE" },
+      { id:"ALERTE_CONTEXT", type:"flag", level:"red", reason:"Contexte à risque (nuque raide/trauma/grossesse/anticoagulants)", next:"SYMPT" },
+      { id:"ALERTE_NEURO", type:"flag", level:"red", reason:"Signes neurologiques associés", next:"TRAIT" },
+      { id:"SYNTHESE", type:"summary" }
+    ],
+    summary: (A) => [
+      "Motif : Mal de tête",
+      "Début : "+(A.DEBUT||"—"),
+      "Contexte : "+list(A.CONTEXTE),
+      "Signes associés : "+list(A.SYMPT),
+      "Traitements : "+(A.TRAIT||"Aucun")
+    ].join("\n"),
+    extraAlerts: (A, any) => {
+      const arr=[]; if(A.DEBUT==="Brutal (coup de tonnerre)") arr.push("Céphalée d’installation brutale");
+      if(any(['raideur','trauma','grossesse','anticoag'])) arr.push("Contexte à risque");
+      if(any(['deficit'])) arr.push("Signes neurologiques associés");
+      return arr;
+    }
+  }
+};
+
+/*** MOTEUR COMMUN ***/
+const home=document.getElementById("home");
 const app=document.getElementById("questions");
 const printable=document.getElementById("printable");
-let answers={}; let alerts=[];
+let CURRENT=null; let answers={}; let alerts=[];
+
+function startMotif(key){
+  CURRENT = MODELS[key];
+  home.style.display="none";
+  app.style.display="block";
+  printable.style.display="none";
+  answers={}; alerts=[];
+  goto("INTRO");
+}
 
 function render(node){
   app.innerHTML=""; const h=document.createElement("h2");
-  h.textContent=node.label||"Question"; app.appendChild(h);
-  if(node.type==="info"){ app.innerHTML+=`<div class="ok">${node.text}</div>`; footer([{label:"Commencer",action:()=>goto(node.next)}]); return; }
+  h.textContent=node.label || `Question — ${CURRENT.titre}`; app.appendChild(h);
+  if(node.type==="info"){
+    app.innerHTML+=`<div class="ok">${node.text}</div>`;
+    footer([{label:"Commencer",action:()=>goto(node.next)},{label:"Changer de motif",action:()=>backHome(),secondary:true}]); return;
+  }
   let row=document.createElement("div"); row.className="row"; app.appendChild(row); let getVal=()=>null;
   if(node.type==="duration"){ row.innerHTML='<input id="duree" placeholder="ex: 2 jours">'; getVal=()=>document.getElementById("duree").value; }
   else if(node.type==="number"){ const i=document.createElement("input"); i.type="number"; i.step="0.1"; row.appendChild(i); getVal=()=>parseFloat(i.value); }
-  else if(node.type==="single_select"){ const s=document.createElement("select"); s.innerHTML='<option value="">— Sélectionner —</option>'+node.options.map(o=>`<option>${o}</option>`).join(""); row.appendChild(s); getVal=()=>s.value; }
-  else if(node.type==="multi_select"){ node.options.forEach(o=>{const b=document.createElement("button"); b.type="button"; b.textContent=o.label||o; b.dataset.code=o.code||o; b.className="chip"; b.onclick=()=>b.classList.toggle("selected"); row.appendChild(b);}); getVal=()=>Array.from(row.querySelectorAll(".chip.selected")).map(b=>({code:b.dataset.code,label:b.textContent})); }
+  else if(node.type==="single_select"){ const s=document.createElement("select"); s.innerHTML='<option value="">— Sélectionner —</option>'+(node.options||[]).map(o=>`<option>${o}</option>`).join(""); row.appendChild(s); getVal=()=>s.value; }
+  else if(node.type==="multi_select"){ const wrap=document.createElement("div"); wrap.className="chips"; (node.options||[]).forEach(o=>{const b=document.createElement("button"); b.type="button"; b.textContent=o.label||o; b.dataset.code=o.code||o; b.className="chip"; b.onclick=()=>b.classList.toggle("selected"); wrap.appendChild(b);}); row.appendChild(wrap); getVal=()=>Array.from(row.querySelectorAll(".chip.selected")).map(b=>({code:b.dataset.code,label:b.textContent})); }
   else if(node.type==="text"){ const t=document.createElement("textarea"); t.rows=3; row.appendChild(t); getVal=()=>t.value.trim(); }
-  else if(node.type==="flag"){ const box=document.createElement("div"); box.className="flagbox"; box.innerHTML=`<div class="flagtitle">⚠️ Drapeau rouge</div><div class="flagreason">${node.reason}</div>`; alerts.push(node.reason); app.appendChild(box); footer([{label:"Continuer",action:()=>goto(node.next)}]); return; }
+  else if(node.type==="flag"){ const box=document.createElement("div"); box.className="flagbox"; box.innerHTML=`<div class="flagtitle">⚠️ Drapeau rouge</div><div class="flagreason">${node.reason}</div>`; alerts.push(node.reason); app.appendChild(box); footer([{label:"Continuer",action:()=>goto(node.next)}]); return;}
   else if(node.type==="summary"){ return renderSummary(); }
-  footer([{label:"Suivant",action:()=>{answers[node.id]={value:getVal()}; next(node,answers[node.id].value);}}]);
+  footer([
+    {label:"Suivant",action:()=>{answers[node.id]=normalizeValue(node.id,getVal()); next(node,answers[node.id]);}},
+    {label:"Changer de motif",action:()=>backHome(),secondary:true}
+  ]);
 }
 
-function footer(btns){ const f=document.createElement("div"); f.className="footer"; btns.forEach(b=>{const el=document.createElement("button"); el.className="btn"; el.textContent=b.label; el.onclick=b.action; f.appendChild(el);}); app.appendChild(f); }
-function goto(id){ const n=NODES.find(x=>x.id===id); render(n); }
-function any(codes){ const a=answers["SYMPT"]?.value||[]; return a.some(o=>codes.includes(o.code)); }
-function next(node,val){ let dest=node.next; if(Array.isArray(dest)){ for(const r of dest){ if(r.if==="value>=40"&&parseFloat(val)>=40) return goto(r.goto); if(r.if?.startsWith("any(")&&any(['dyspnee','douleur_thx','raideur','purpura','confusion'])) return goto(r.goto);} dest=node.next.find(r=>r.else)?.else; } goto(dest); }
+function normalizeValue(id,val){
+  // Stocke des valeurs simples pour la synthèse
+  if(Array.isArray(val)) return val; // multi-select [{code,label}]
+  return val; // string/number
+}
+
+function footer(btns){
+  const f=document.createElement("div"); f.className="footer";
+  btns.forEach(b=>{const el=document.createElement("button"); el.className="btn"+(b.secondary?" secondary":""); el.textContent=b.label; el.onclick=b.action; f.appendChild(el);});
+  app.appendChild(f);
+}
+
+function goto(id){ const n=(CURRENT.nodes||[]).find(x=>x.id===id); render(n); }
+function backHome(){ home.style.display="block"; app.style.display="none"; printable.style.display="none"; }
+
+function any(codes){
+  // lit dans le dernier multi-select pertinent
+  const all = [].concat(answers.SYMPT||[], answers.SIGNES||[], answers.CONTEXTE||[]);
+  return all.some(o => codes.includes(o.code));
+}
+
+function next(node,val){
+  let dest=node.next;
+  if(Array.isArray(dest)){
+    let fallback=null;
+    for(const r of dest){
+      if(r.else){ fallback=r.else; continue; }
+      if(r.if==="value>=40" && parseFloat(val)>=40) return goto(r.goto);
+      if(r.if?.startsWith("any(") && any(eval(r.if.match(/\((.*)\)/)[1]))) return goto(r.goto);
+      if(r.if?.startsWith("eq(")){ const target=r.if.match(/eq\('(.*)'\)/)[1]; if(val===target) return goto(r.goto); }
+    }
+    return goto(fallback);
+  }
+  goto(dest);
+}
+
+/*** SYNTHÈSE COMMUNE ***/
+function list(arr){ return (arr && arr.length)? arr.map(x=>x.label).join(", ") : "Aucun"; }
+function flattenAnswers(){
+  const A={};
+  for(const k in answers){
+    const v=answers[k];
+    if(Array.isArray(v)) A[k]=v;
+    else if(typeof v==="object" && v!==null && "value" in v) A[k]=v.value;
+    else A[k]=v;
+  }
+  return A;
+}
 
 function buildSummaryText(){
-  const dur=answers["DUREE"]?.value||"(non précisée)";
-  const t=answers["TMAX"]?.value||"(non précisée)";
-  const mode=answers["MODE"]?.value||"—";
-  const evol=answers["EVOL"]?.value||"—";
-  const sympt=(answers["SYMPT"]?.value||[]).map(x=>x.label).join(", ")||"Aucun";
-  const ctx=(answers["CONTEXTE"]?.value||[]).map(x=>x.label).join(", ")||"Aucun";
-  const risks=(answers["RISQUES"]?.value||[]).map(x=>x.label).join(", ")||"Aucun";
-  const trait=answers["TRAIT"]?.value||"Aucun";
-  return [
-    "Motif : Fièvre",
-    "Durée : "+dur,
-    "Température max : "+t+" °C (mesure : "+mode+")",
-    "Évolution : "+evol,
-    "Symptômes associés : "+sympt,
-    "Contexte : "+ctx,
-    "Facteurs de risque : "+risks,
-    "Traitements : "+trait
-  ].join("\n");
+  const A = flattenAnswers();
+  return CURRENT.summary(A, any);
 }
 
 function renderSummary(){
-  const t=answers["TMAX"]?.value;
-  if(parseFloat(t)>=40 && !alerts.includes("Température ≥ 40 °C")) alerts.push("Température ≥ 40 °C");
-  if(any(['dyspnee','douleur_thx','raideur','purpura','confusion']) && !alerts.includes("Signes d'alerte associés")) alerts.push("Signes d'alerte associés");
+  const A = flattenAnswers();
+  const text = CURRENT.summary(A, any);
+  // compléter les alertes selon le modèle
+  CURRENT.extraAlerts(A, any).forEach(a=>{ if(!alerts.includes(a)) alerts.push(a); });
 
-  const text = buildSummaryText();
-  printable.style.display = "block";
-  let html = "";
-  if(alerts.length>0){
-    html += "<div class='flagbox'><div class='flagtitle'>⚠️ Drapeaux rouges</div>";
-    alerts.forEach(a => { html += "<div class='flagreason'>• "+a+"</div>"; });
-    html += "</div>";
-  } else {
-    html += "<div class='ok'>Aucun drapeau rouge détecté.</div>";
-  }
-  html += "<div class='summary' id='synthText'>"+text+"</div>";
-  html += "<div class='footer'>"
-        + "<button class='btn' id='btnCopy'>Copier la synthèse</button>"
-        + "<button class='btn' id='btnMSS'>Envoyer via MSSanté</button>"
-        + "<button class='btn' id='btnRestart'>Recommencer</button>"
-        + "</div>";
-  printable.innerHTML = html;
+  const synthHTML = (()=> {
+    let html="";
+    if(alerts.length>0){
+      html += "<div class='flagbox'><div class='flagtitle'>⚠️ Drapeaux rouges</div>";
+      alerts.forEach(a => { html += "<div class='flagreason'>• "+a+"</div>"; });
+      html += "</div>";
+    } else {
+      html += "<div class='ok'>Aucun drapeau rouge détecté.</div>";
+    }
+    html += "<div class='summary' id='synthText'>"+text.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</div>";
+    html += "<div class='footer'>"
+          + "<button class='btn' id='btnCopy'>Copier la synthèse</button>"
+          + "<button class='btn' id='btnMSS'>Envoyer via MSSanté</button>"
+          + "<button class='btn' id='btnHome'>Changer de motif</button>"
+          + "<button class='btn' id='btnRestart'>Recommencer</button>"
+          + "</div>";
+    return html;
+  })();
 
-  document.getElementById("questions").style.display="none";
+  printable.innerHTML = synthHTML;
+  printable.style.display="block";
+  app.style.display="none";
 
   document.getElementById("btnCopy").onclick = ()=>{
     const synth=document.getElementById("synthText").innerText;
     navigator.clipboard.writeText(synth).then(()=>{alert("Synthèse copiée. Vous pouvez la coller dans Madeformed.");});
   };
   document.getElementById("btnMSS").onclick = ()=>{
-    const subject="Pré-consultation — Fièvre";
+    const subject="Pré-consultation — "+CURRENT.titre;
     const body=(alerts.length?("Drapeaux rouges: "+alerts.join(", ")+"\n\n"):"")+text+"\n\n— Questionnaire pré-consultation";
     const url="mailto:"+encodeURIComponent(MSSANTE_TO)
       +"?subject="+encodeURIComponent(subject)
       +"&body="+encodeURIComponent(body);
     window.location.href=url;
   };
-  document.getElementById("btnRestart").onclick = ()=>{alerts=[];answers={};printable.style.display="none";document.getElementById("questions").style.display="block";goto("INTRO");};
+  document.getElementById("btnHome").onclick = ()=>{ alerts=[]; answers={}; printable.style.display="none"; home.style.display="block"; };
+  document.getElementById("btnRestart").onclick = ()=>{ alerts=[]; answers={}; printable.style.display="none"; app.style.display="block"; goto("INTRO"); };
 }
-
-goto("INTRO");
 </script>
 </body>
 </html>
