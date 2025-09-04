@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Questionnaire pré-consultation — Fièvre</title>
+<style>
+  :root{--red:#b91c1c;--redbg:#fee2e2;--border:#e5e7eb;--fg:#111;--muted:#6b7280;}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;margin:0;padding:24px;background:#f7f7f8;color:var(--fg)}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;max-width:880px;margin:0 auto 18px auto;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  h1{font-size:24px;margin:0 0 6px}
+  h2{font-size:18px;margin:12px 0 8px}
+  .muted{color:var(--muted);font-size:12px}
+  .btn{appearance:none;border:1px solid #111;background:#111;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+  .row{margin:10px 0}
+  input,textarea,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:1px solid #d1d5db;border-radius:999px;padding:8px 12px;cursor:pointer;background:#fff}
+  .chip.selected{background:#111;color:#fff;border-color:#111}
+  .footer{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+  .flagbox{padding:12px;border-radius:12px;background:var(--redbg);border:1px solid #fecaca;margin:10px 0}
+  .flagtitle{font-weight:800;color:var(--red);margin-bottom:6px}
+  .flagreason{color:var(--red);font-weight:700}
+  .ok{padding:10px 12px;border-radius:12px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;margin:10px 0;font-weight:600}
+  .summary{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Questionnaire pré-consultation — Fièvre</h1>
+    <div class="muted">Version démo. Ce formulaire ne remplace pas un avis médical.</div>
+  </div>
+
+  <div id="app" class="card"></div>
+
+<script>
+const NODES = [
+  { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.", next:"DUREE" },
+  { id:"DUREE", type:"duration", label:"Depuis quand avez-vous de la fièvre ?", next:"TMAX" },
+  { id:"TMAX", type:"number", label:"Température maximale mesurée (°C)", min:35, max:43.5, precision:1, next:[
+      { if:"value>=40", goto:"ALERTE_T40" },
+      { else:"MODE" }
+    ]
+  },
+  { id:"MODE", type:"single_select", label:"Comment la température a-t-elle été mesurée ?", options:["Frontale","Auriculaire","Buccale","Rectale","Axillaire","Je ne sais pas"], next:"EVOL" },
+  { id:"EVOL", type:"single_select", label:"Comment évolue votre fièvre ?", options:["Continue","Par pics","Je ne sais pas"], next:"SYMPT" },
+  { id:"SYMPT", type:"multi_select", label:"Avez-vous un de ces signes ?", options:[
+      {code:"dyspnee",label:"Essoufflement"},
+      {code:"douleur_thx",label:"Douleur thoracique"},
+      {code:"raideur",label:"Raideur de nuque"},
+      {code:"purpura",label:"Taches violettes qui ne disparaissent pas"},
+      {code:"confusion",label:"Somnolence ou confusion"},
+      {code:"toux",label:"Toux"},
+      {code:"digestif",label:"Vomissements/diarrhée"},
+      {code:"eruption",label:"Éruption cutanée"}
+    ],
+    next:[
+      { if:"any(['dyspnee','douleur_thx','raideur','purpura','confusion'])", goto:"ALERTE_SIGNES" },
+      { else:"CONTEXTE" }
+    ]
+  },
+  { id:"CONTEXTE", type:"multi_select", label:"Contexte récent", options:["Retour de voyage","Contact malade","Vaccination récente","Exposition professionnelle","Aucun"], next:"RISQUES" },
+  { id:"RISQUES", type:"multi_select", label:"Facteurs de risque", options:["Grossesse","Âge < 3 mois","Âge > 75 ans","Immunodépression","Maladie chronique","Aucun"],
+    next:[
+      { if:"any(['Grossesse','Âge < 3 mois','Immunodépression'])", goto:"ALERTE_RISQUE" },
+      { else:"TRAIT" }
+    ]
+  },
+  { id:"TRAIT", type:"text", label:"Traitements pris", next:"SYNTHESE" },
+  { id:"ALERTE_T40", type:"flag", level:"red", reason:"Température ≥ 40 °C", next:"MODE" },
+  { id:"ALERTE_SIGNES", type:"flag", level:"red", reason:"Signes d'alerte associés", next:"CONTEXTE" },
+  { id:"ALERTE_RISQUE", type:"flag", level:"red", reason:"Situation à risque", next:"TRAIT" },
+  { id:"SYNTHESE", type:"summary" }
+];
+
+const app=document.getElementById("app");
+let answers={}; let alerts=[];
+
+function render(node){
+  app.innerHTML=""; const h=document.createElement("h2");
+  h.textContent=node.label||"Question"; app.appendChild(h);
+  if(node.type==="info"){ app.innerHTML+=`<div class="ok">${node.text}</div>`; footer([{label:"Commencer",action:()=>goto(node.next)}]); return; }
+  let row=document.createElement("div"); row.className="row"; app.appendChild(row); let getVal=()=>null;
+  if(node.type==="duration"){ row.innerHTML='<input id="duree" placeholder="ex: 2 jours">'; getVal=()=>document.getElementById("duree").value; }
+  else if(node.type==="number"){ const i=document.createElement("input"); i.type="number"; i.step="0.1"; row.appendChild(i); getVal=()=>parseFloat(i.value); }
+  else if(node.type==="single_select"){ const s=document.createElement("select"); s.innerHTML='<option value="">— Sélectionner —</option>'+node.options.map(o=>`<option>${o}</option>`).join(""); row.appendChild(s); getVal=()=>s.value; }
+  else if(node.type==="multi_select"){ node.options.forEach(o=>{const b=document.createElement("button"); b.type="button"; b.textContent=o.label||o; b.dataset.code=o.code||o; b.className="chip"; b.onclick=()=>b.classList.toggle("selected"); row.appendChild(b);}); getVal=()=>Array.from(row.querySelectorAll(".chip.selected")).map(b=>({code:b.dataset.code,label:b.textContent})); }
+  else if(node.type==="text"){ const t=document.createElement("textarea"); t.rows=3; row.appendChild(t); getVal=()=>t.value.trim(); }
+  else if(node.type==="flag"){ const box=document.createElement("div"); box.className="flagbox"; box.innerHTML=`<div class="flagtitle">⚠️ Drapeau rouge</div><div class="flagreason">${node.reason}</div>`; alerts.push(node.reason); app.appendChild(box); footer([{label:"Continuer",action:()=>goto(node.next)}]); return; }
+  else if(node.type==="summary"){ return renderSummary(); }
+  footer([{label:"Suivant",action:()=>{answers[node.id]={value:getVal()}; next(node,answers[node.id].value);}}]);
+}
+
+function footer(btns){ const f=document.createElement("div"); f.className="footer"; btns.forEach(b=>{const el=document.createElement("button"); el.className="btn"; el.textContent=b.label; el.onclick=b.action; f.appendChild(el);}); app.appendChild(f); }
+function goto(id){ const n=NODES.find(x=>x.id===id); render(n); }
+function any(codes){ const a=answers["SYMPT"]?.value||[]; return a.some(o=>codes.includes(o.code)); }
+function next(node,val){ let dest=node.next; if(Array.isArray(dest)){ for(const r of dest){ if(r.if==="value>=40"&&parseFloat(val)>=40) return goto(r.goto); if(r.if?.startsWith("any(")&&any(['dyspnee','douleur_thx','raideur','purpura','confusion'])) return goto(r.goto);} dest=node.next.find(r=>r.else)?.else; } goto(dest); }
+function renderSummary(){ 
+  const dur=answers["DUREE"]?.value||"(non précisée)"; const t=answers["TMAX"]?.value||"(non précisée)"; 
+  const mode=answers["MODE"]?.value||"—"; const evol=answers["EVOL"]?.value||"—"; 
+  const sympt=(answers["SYMPT"]?.value||[]).map(x=>x.label).join(", ")||"Aucun"; 
+  const ctx=(answers["CONTEXTE"]?.value||[]).map(x=>x.label).join(", ")||"Aucun"; 
+  const risks=(answers["RISQUES"]?.value||[]).map(x=>x.label).join(", ")||"Aucun"; 
+  const trait=answers["TRAIT"]?.value||"Aucun";
+
+  if(parseFloat(t)>=40 && !alerts.includes("Température ≥ 40 °C")) alerts.push("Température ≥ 40 °C");
+  if(any(['dyspnee','douleur_thx','raideur','purpura','confusion']) && !alerts.includes("Signes d'alerte associés")) alerts.push("Signes d'alerte associés");
+
+  if(alerts.length>0){ 
+    const box=document.createElement("div"); box.className="flagbox"; box.innerHTML="<div class='flagtitle'>⚠️ Drapeaux rouges</div>"+alerts.map(a=>`<div class='flagreason'>• ${a}</div>`).join(""); 
+    app.appendChild(box); 
+  } else { app.innerHTML+='<div class="ok">Aucun drapeau rouge détecté.</div>'; }
+
+  const pre=document.createElement("div"); pre.className="summary"; 
+  pre.textContent=["Motif : Fièvre","Durée : "+dur,"Température max : "+t+" °C (mesure : "+mode+")","Évolution : "+evol,"Symptômes associés : "+sympt,"Contexte : "+ctx,"Facteurs de risque : "+risks,"Traitements : "+trait].join("\n"); 
+  app.appendChild(pre); footer([{label:"Recommencer",action:()=>{answers={};alerts=[];goto('INTRO');}}]);
+}
+goto("INTRO");
+</script>
+</body>
+</html>
