@@ -23,34 +23,20 @@
   .flagreason{color:var(--red);font-weight:700}
   .ok{padding:10px 12px;border-radius:12px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;margin:10px 0;font-weight:600}
   .summary{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
-
-  /* --- Mise en page PDF propre : n’imprimer que la synthèse et les drapeaux rouges --- */
-  @media print{
-    body{background:#fff;padding:0}
-    .card{border:none;box-shadow:none;margin:0;max-width:none}
-    #questions{display:none}
-    #printable{display:block}
-    .footer{display:none}
-  }
 </style>
 </head>
 <body>
   <div class="card">
     <h1>Questionnaire pré-consultation — Fièvre</h1>
-    <div class="muted">Version démo. Ce formulaire ne remplace pas un avis médical. En cas d’urgence : 15.</div>
+    <div class="muted">Version démo. Ce formulaire ne remplace pas un avis médical.</div>
   </div>
 
-  <!-- zone des questions -->
   <div id="questions" class="card"></div>
-
-  <!-- zone imprimable (PDF) générée à la fin -->
   <div id="printable" class="card" style="display:none"></div>
 
 <script>
-/*** 1) PARAMÈTRES À PERSONNALISER ***/
-const MSSANTE_TO = "nom.prenom@votre-cabinet.mssante.fr"; // <-- change ici
+const MSSANTE_TO = "nom.prenom@votre-cabinet.mssante.fr"; // <-- à personnaliser
 
-/*** 2) DÉFINITION DU QUESTIONNAIRE ***/
 const NODES = [
   { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.", next:"DUREE" },
   { id:"DUREE", type:"duration", label:"Depuis quand avez-vous de la fièvre ?", next:"TMAX" },
@@ -94,14 +80,10 @@ const app=document.getElementById("questions");
 const printable=document.getElementById("printable");
 let answers={}; let alerts=[];
 
-/*** 3) MOTEUR D’AFFICHAGE ***/
 function render(node){
   app.innerHTML=""; const h=document.createElement("h2");
   h.textContent=node.label||"Question"; app.appendChild(h);
-  if(node.type==="info"){
-    app.innerHTML+=`<div class="ok">${node.text}</div>`;
-    footer([{label:"Commencer",action:()=>goto(node.next)}]); return;
-  }
+  if(node.type==="info"){ app.innerHTML+=`<div class="ok">${node.text}</div>`; footer([{label:"Commencer",action:()=>goto(node.next)}]); return; }
   let row=document.createElement("div"); row.className="row"; app.appendChild(row); let getVal=()=>null;
   if(node.type==="duration"){ row.innerHTML='<input id="duree" placeholder="ex: 2 jours">'; getVal=()=>document.getElementById("duree").value; }
   else if(node.type==="number"){ const i=document.createElement("input"); i.type="number"; i.step="0.1"; row.appendChild(i); getVal=()=>parseFloat(i.value); }
@@ -118,7 +100,6 @@ function goto(id){ const n=NODES.find(x=>x.id===id); render(n); }
 function any(codes){ const a=answers["SYMPT"]?.value||[]; return a.some(o=>codes.includes(o.code)); }
 function next(node,val){ let dest=node.next; if(Array.isArray(dest)){ for(const r of dest){ if(r.if==="value>=40"&&parseFloat(val)>=40) return goto(r.goto); if(r.if?.startsWith("any(")&&any(['dyspnee','douleur_thx','raideur','purpura','confusion'])) return goto(r.goto);} dest=node.next.find(r=>r.else)?.else; } goto(dest); }
 
-/*** 4) SYNTHÈSE + BOUTONS PDF & MSSANTÉ ***/
 function buildSummaryText(){
   const dur=answers["DUREE"]?.value||"(non précisée)";
   const t=answers["TMAX"]?.value||"(non précisée)";
@@ -141,12 +122,10 @@ function buildSummaryText(){
 }
 
 function renderSummary(){
-  // compléter les alertes à partir des réponses
   const t=answers["TMAX"]?.value;
   if(parseFloat(t)>=40 && !alerts.includes("Température ≥ 40 °C")) alerts.push("Température ≥ 40 °C");
   if(any(['dyspnee','douleur_thx','raideur','purpura','confusion']) && !alerts.includes("Signes d'alerte associés")) alerts.push("Signes d'alerte associés");
 
-  // Construire la zone imprimable
   const text = buildSummaryText();
   printable.style.display = "block";
   let html = "";
@@ -157,37 +136,31 @@ function renderSummary(){
   } else {
     html += "<div class='ok'>Aucun drapeau rouge détecté.</div>";
   }
-  html += "<div class='summary'>"+text.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")+"</div>";
-  // Ajouter boutons d’action
+  html += "<div class='summary' id='synthText'>"+text+"</div>";
   html += "<div class='footer'>"
-        + "<button class='btn' id='btnPdf'>Télécharger en PDF</button>"
+        + "<button class='btn' id='btnCopy'>Copier la synthèse</button>"
         + "<button class='btn' id='btnMSS'>Envoyer via MSSanté</button>"
         + "<button class='btn' id='btnRestart'>Recommencer</button>"
         + "</div>";
   printable.innerHTML = html;
 
-  // Cacher les questions, n’afficher que la synthèse
   document.getElementById("questions").style.display="none";
 
-  // Brancher actions
-  document.getElementById("btnPdf").onclick = ()=> window.print();
+  document.getElementById("btnCopy").onclick = ()=>{
+    const synth=document.getElementById("synthText").innerText;
+    navigator.clipboard.writeText(synth).then(()=>{alert("Synthèse copiée. Vous pouvez la coller dans Madeformed.");});
+  };
   document.getElementById("btnMSS").onclick = ()=>{
-    const subject = "Pré-consultation — Fièvre";
-    const body = (alerts.length?("Drapeaux rouges: "+alerts.join(", ")+"\n\n"):"") + text + "\n\n— Questionnaire pré-consultation";
-    const url = "mailto:"+encodeURIComponent(MSSANTE_TO)
+    const subject="Pré-consultation — Fièvre";
+    const body=(alerts.length?("Drapeaux rouges: "+alerts.join(", ")+"\n\n"):"")+text+"\n\n— Questionnaire pré-consultation";
+    const url="mailto:"+encodeURIComponent(MSSANTE_TO)
       +"?subject="+encodeURIComponent(subject)
       +"&body="+encodeURIComponent(body);
-    window.location.href = url; // ouvre le client mail (ex. MSSanté web / app)
+    window.location.href=url;
   };
-  document.getElementById("btnRestart").onclick = ()=>{
-    alerts = []; answers = {};
-    printable.style.display="none";
-    document.getElementById("questions").style.display="block";
-    goto("INTRO");
-  };
+  document.getElementById("btnRestart").onclick = ()=>{alerts=[];answers={};printable.style.display="none";document.getElementById("questions").style.display="block";goto("INTRO");};
 }
 
-/*** Lancer ***/
 goto("INTRO");
 </script>
 </body>
