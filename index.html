@@ -123,7 +123,8 @@ const MODELS = {
           {code:"confusion",label:"Somnolence / confusion"},
           {code:"toux",label:"Toux"},
           {code:"digestif",label:"Vomissements / diarrhée"},
-          {code:"eruption",label:"Éruption cutanée"}
+          {code:"eruption",label:"Éruption cutanée"},
+          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
         ],
         next:"FACTEURS" },
 
@@ -135,7 +136,7 @@ const MODELS = {
           {code:"immuno",label:"Immunodépression"},
           {code:"age",label:"Âge > 75 ans"},
           {code:"chronique",label:"Maladie chronique"},
-          {code:"aucun",label:"Aucun"}
+          {code:"aucun",label:"Aucun"}                 /* déjà présent, conservé */
         ],
         next:"TRAIT" },
 
@@ -204,7 +205,8 @@ const MODELS = {
           {code:"fievre",label:"Fièvre"},
           {code:"dyspnee",label:"Essoufflement"},
           {code:"deficit",label:"Déficit neurologique"},
-          {code:"pc",label:"Perte de connaissance"}
+          {code:"pc",label:"Perte de connaissance"},
+          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
         ],
         next:"TRAIT" },
 
@@ -252,7 +254,8 @@ const MODELS = {
           {code:"raideur",label:"Raideur de nuque"},
           {code:"trauma",label:"Traumatisme récent"},
           {code:"grossesse",label:"Grossesse/post-partum"},
-          {code:"anticoag",label:"Anticoagulants"}
+          {code:"anticoag",label:"Anticoagulants"},
+          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
         ],
         next:"SYMPT" },
 
@@ -261,7 +264,8 @@ const MODELS = {
         options:[
           {code:"deficit",label:"Déficit neuro (faiblesse, parole/vision)"},
           {code:"vomit",label:"Vomissements en jet"},
-          {code:"photoph",label:"Photophobie"}
+          {code:"photoph",label:"Photophobie"},
+          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
         ],
         next:"TRAIT" },
 
