@@ -195,31 +195,28 @@ const MODELS = {
   },
 
   renouvellement: {
-    titre: "Renouvellement d’ordonnance",
-    nodes: [
-      { id:"INTRO", type:"info", text:"Ce questionnaire prépare le renouvellement. En cas d’urgence, appelez le 15.", next:"TRAITEMENTS" },
-      { id:"TRAITEMENTS", type:"text", label:"Listez les traitements à renouveler (nom + dosage)", next:"TOLERANCE" },
-      { id:"TOLERANCE", type:"text", label:"Tolérance / effets indésirables récents", next:"MESURES" },
-      { id:"MESURES", type:"text", label:"Mesures récentes si connues (TA, glycémie, poids, cholestérol…)", next:"INTERCURRENTS" },
-      { id:"INTERCURRENTS", type:"text", label:"Événements intercurrents (hospitalisation, nouveau traitement, symptôme nouveau…)", next:"SYNTHESE" },
-      { id:"SYNTHESE", type:"summary" }
-    ],
-    summary: (A) => [
-      "Motif : Renouvellement d’ordonnance",
-      "Traitements à renouveler : "+(A.TRAITEMENTS||"—"),
-      "Tolérance / EI : "+(A.TOLERANCE||"—"),
-      "Mesures récentes : "+(A.MESURES||"—"),
-      "Événements intercurrents : "+(A.INTERCURRENTS||"—")
-    ].join("\n"),
-    extraAlerts: (A) => {
-      const arr=[];
-      // Mini-règles simples (optionnelles)
-      if((A.MESURES||"").match(/(TA|tension).*(2[0-9]{2}|1[8-9][0-9])/i)) arr.push("TA possiblement élevée");
-      if((A.MESURES||"").match(/glyc(émie)?.*(>?\s?3[0-9]{2}|30)\b/i)) arr.push("Glycémie possiblement élevée");
-      if((A.INTERCURRENTS||"").match(/(douleur thoracique|dyspn(ée|ee)|malaise|syncope)/i)) arr.push("Symptômes intercurrents à prioriser");
-      return arr;
-    }
+  titre: "Renouvellement d’ordonnance",
+  nodes: [
+    { id:"INTRO", type:"info", text:"Ce questionnaire prépare le renouvellement. En cas d’urgence, appelez le 15.", next:"TOLERANCE" },
+    { id:"TOLERANCE", type:"text", label:"Tolérance / effets indésirables récents", next:"MESURES" },
+    { id:"MESURES", type:"text", label:"Mesures récentes si connues (TA, glycémie, poids, cholestérol…)", next:"INTERCURRENTS" },
+    { id:"INTERCURRENTS", type:"text", label:"Événements intercurrents (hospitalisation, nouveau traitement, symptôme nouveau…)", next:"SYNTHESE" },
+    { id:"SYNTHESE", type:"summary" }
+  ],
+  summary: (A) => [
+    "Motif : Renouvellement d’ordonnance",
+    "Tolérance / EI : "+(A.TOLERANCE||"—"),
+    "Mesures récentes : "+(A.MESURES||"—"),
+    "Événements intercurrents : "+(A.INTERCURRENTS||"—")
+  ].join("\n"),
+  extraAlerts: (A) => {
+    const arr=[];
+    if((A.MESURES||"").match(/(TA|tension).*(2[0-9]{2}|1[8-9][0-9])/i)) arr.push("TA possiblement élevée");
+    if((A.MESURES||"").match(/glyc(émie)?.*(>?\s?3[0-9]{2}|30)\b/i)) arr.push("Glycémie possiblement élevée");
+    if((A.INTERCURRENTS||"").match(/(douleur thoracique|dyspn(ée|ee)|malaise|syncope)/i)) arr.push("Symptômes intercurrents à prioriser");
+    return arr;
   }
+}
 };
 
 /*** MOTEUR COMMUN ***/
