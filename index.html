@@ -7,7 +7,7 @@
 <style>
   :root{
     --red:#b91c1c; --redbg:#fee2e2; --border:#e5e7eb; --fg:#111; --muted:#6b7280;
-    --hl-bg:#fef08a; /* jaune clair pour surlignage des intitulés */
+    --hl-bg:#fef08a; /* jaune clair pour surlignage */
   }
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;margin:0;padding:24px;background:#f7f7f8;color:var(--fg)}
   .card{background:#fff;border:1px solid var(--border);border-radius:12px;max-width:880px;margin:0 auto 18px auto;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
@@ -29,7 +29,7 @@
   .flagreason{color:var(--red);font-weight:700}
   .ok{padding:10px 12px;border-radius:12px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;margin:10px 0;font-weight:600}
 
-  /* Synthèse : intitulés en majuscules gras + surlignage jaune */
+  /* Synthèse */
   .summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
   .sline{margin:4px 0;line-height:1.45}
   .slabel{font-weight:800;text-transform:uppercase;background:var(--hl-bg);padding:2px 6px;border-radius:4px}
@@ -74,183 +74,83 @@
   <div id="printable" class="card" style="display:none"></div>
 
 <script>
-/*** PARAMÈTRES ***/
 const MSSANTE_TO = "nom.prenom@votre-cabinet.mssante.fr"; // <-- à personnaliser
 
-/*** UTILITAIRES ***/
 function list(arr){ return (arr && arr.length)? arr.map(x=>x.label).join(", ") : "Aucun"; }
 function lines(pairs){
   return pairs.map(([k,v]) =>
-    `<div class="sline"><span class="slabel">${(k||"")}</span> : <span class="svalue">${escapeHTML(v)}</span></div>`
+    `<div class="sline"><span class="slabel">${k}</span> : <span class="svalue">${escapeHTML(v)}</span></div>`
   ).join("");
 }
-function escapeHTML(x){
-  if(x===undefined || x===null) return "";
-  return String(x).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
+function escapeHTML(x){ if(x==null) return ""; return String(x).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
 
-/*** MODÈLES ***/
 const MODELS = {
   fievre: {
     titre: "FIÈVRE",
     nodes: [
-      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.", next:"DUREE" },
-      { id:"DUREE", type:"duration", label:"Depuis quand avez-vous de la fièvre ?", next:"TMAX" },
-      { id:"TMAX", type:"number", label:"Température maximale mesurée (°C)", next:"EVOL" },
-      { id:"EVOL", type:"single_select", label:"Comment évolue votre fièvre ?", options:["Continue","Par pics","Je ne sais pas"], next:"SYMPT" },
-      { id:"SYMPT", type:"multi_select", label:"Avez-vous un de ces signes ?", options:[
-          {code:"dyspnee",label:"Essoufflement"},
-          {code:"douleur_thx",label:"Douleur thoracique"},
-          {code:"raideur",label:"Raideur de nuque"},
-          {code:"purpura",label:"Taches violettes persistantes"},
-          {code:"confusion",label:"Somnolence / confusion"},
-          {code:"toux",label:"Toux"},
-          {code:"digestif",label:"Vomissements / diarrhée"},
-          {code:"eruption",label:"Éruption cutanée"}
-        ],
-        next:"FACTEURS"
-      },
-      { id:"FACTEURS", type:"multi_select", label:"Facteurs de risque", options:[
-          {code:"grossesse",label:"Grossesse"},
-          {code:"nourrisson",label:"Âge < 3 mois"},
-          {code:"immuno",label:"Immunodépression"},
-          {code:"age",label:"Âge > 75 ans"},
-          {code:"chronique",label:"Maladie chronique"},
-          {code:"aucun",label:"Aucun"}
-        ], next:"TRAIT"
-      },
-      { id:"TRAIT", type:"text", label:"Traitements pris (nom, dose, efficacité)", next:"SYNTHESE" },
-      { id:"SYNTHESE", type:"summary" }
+      {id:"INTRO",type:"info",text:"Ce questionnaire prépare votre consultation. En cas de détresse, appelez le 15.",next:"DUREE"},
+      {id:"DUREE",type:"duration",label:"Depuis quand avez-vous de la fièvre ?",next:"TMAX"},
+      {id:"TMAX",type:"number",label:"Température maximale mesurée (°C)",next:"EVOL"},
+      {id:"EVOL",type:"single_select",label:"Comment évolue votre fièvre ?",options:["Continue","Par pics","Je ne sais pas"],next:"SYMPT"},
+      {id:"SYMPT",type:"multi_select",label:"Avez-vous un de ces signes ?",options:[
+        {code:"dyspnee",label:"Essoufflement"},{code:"douleur_thx",label:"Douleur thoracique"},{code:"raideur",label:"Raideur de nuque"},
+        {code:"purpura",label:"Taches violettes persistantes"},{code:"confusion",label:"Somnolence / confusion"},{code:"toux",label:"Toux"},
+        {code:"digestif",label:"Vomissements / diarrhée"},{code:"eruption",label:"Éruption cutanée"}
+      ],next:"FACTEURS"},
+      {id:"FACTEURS",type:"multi_select",label:"Facteurs de risque",options:[
+        {code:"grossesse",label:"Grossesse"},{code:"nourrisson",label:"Âge < 3 mois"},{code:"immuno",label:"Immunodépression"},
+        {code:"age",label:"Âge > 75 ans"},{code:"chronique",label:"Maladie chronique"},{code:"aucun",label:"Aucun"}
+      ],next:"TRAIT"},
+      {id:"TRAIT",type:"text",label:"Traitements pris (nom, dose, efficacité)",next:"SYNTHESE"},
+      {id:"SYNTHESE",type:"summary"}
     ],
-    summary: (A, any) => lines([
-      ["MOTIF","Fièvre"],
-      ["DURÉE", A.DUREE || "(non précisée)"],
-      ["TEMPÉRATURE MAX", (A.TMAX ?? "(non précisée)") + " °C"],
-      ["ÉVOLUTION", A.EVOL||"—"],
-      ["SIGNES ASSOCIÉS", list(A.SYMPT)],
-      ["FACTEURS DE RISQUE", list(A.FACTEURS)],
-      ["TRAITEMENTS", A.TRAIT||"Aucun"]
+    summary:(A)=>lines([
+      ["MOTIF","Fièvre"],["DURÉE",A.DUREE||"(non précisée)"],["TEMPÉRATURE MAX",(A.TMAX??"(non précisée)")+" °C"],
+      ["ÉVOLUTION",A.EVOL||"—"],["SIGNES ASSOCIÉS",list(A.SYMPT)],["FACTEURS DE RISQUE",list(A.FACTEURS)],["TRAITEMENTS",A.TRAIT||"Aucun"]
     ]),
-    extraAlerts: (A, any) => {
-      const arr=[];
-      if(parseFloat(A.TMAX)>=40) arr.push("Température ≥ 40 °C");
-      if(any(['dyspnee','douleur_thx','raideur','purpura','confusion'])) arr.push("Signes d’alerte associés");
-      if(any(['grossesse','nourrisson','immuno'])) arr.push("Situation à risque");
-      return arr;
-    }
+    extraAlerts:(A,any)=>{const arr=[];if(parseFloat(A.TMAX)>=40)arr.push("Température ≥ 40 °C");if(any(['dyspnee','douleur_thx','raideur','purpura','confusion']))arr.push("Signes d’alerte");if(any(['grossesse','nourrisson','immuno']))arr.push("Situation à risque");return arr;}
   },
-
-  douleur: {
-    titre: "DOULEUR",
-    nodes: [
-      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation douleur. En cas d’urgence, appelez le 15.", next:"LOCALISATION" },
-      { id:"LOCALISATION", type:"single_select", label:"Où est la douleur ?", options:["Tête","Poitrine","Abdomen","Dos","Membre","Autre"], next:"DUREE" },
-      { id:"DUREE", type:"duration", label:"Depuis quand ?", next:"INTENSITE" },
-      { id:"INTENSITE", type:"number", label:"Intensité (0 à 10)", next:"CARACTERE" },
-      { id:"CARACTERE", type:"multi_select", label:"Caractère", options:["Brûlure","Piqûre","Crampes","Poids","Décharge","Pulsatile"], next:"SIGNES" },
-      { id:"SIGNES", type:"multi_select", label:"Signes associés", options:[
-          {code:"fievre",label:"Fièvre"},
-          {code:"dyspnee",label:"Essoufflement"},
-          {code:"deficit",label:"Déficit neurologique"},
-          {code:"pc",label:"Perte de connaissance"}
-        ], next:"TRAIT"
-      },
-      { id:"TRAIT", type:"text", label:"Qu’avez-vous pris ? (nom, dose, effet)", next:"SYNTHESE" },
-      { id:"SYNTHESE", type:"summary" }
-    ],
-    summary: (A) => lines([
-      ["MOTIF","Douleur"],
-      ["LOCALISATION", A.LOCALISATION||"—"],
-      ["DURÉE", A.DUREE||"(non précisée)"],
-      ["INTENSITÉ", (A.INTENSITE ?? "—")+"/10"],
-      ["CARACTÈRE", list(A.CARACTERE)],
-      ["SIGNES ASSOCIÉS", list(A.SIGNES)],
-      ["TRAITEMENTS", A.TRAIT||"Aucun"]
-    ]),
-    extraAlerts: (A, any) => {
-      const arr=[]; 
-      if(parseFloat(A.INTENSITE)>=8) arr.push("Douleur intense ≥ 8/10");
-      if(any(['dyspnee','deficit','pc'])) arr.push("Signes d’alerte associés");
-      if(A.LOCALISATION==="Poitrine" && any(['dyspnee'])) arr.push("Douleur thoracique + essoufflement");
-      return arr;
-    }
-  },
-
-  cephalees: {
-    titre: "MAL DE TÊTE",
-    nodes: [
-      { id:"INTRO", type:"info", text:"Ce questionnaire prépare votre consultation pour céphalées. Appelez le 15 en cas d’urgence.", next:"DEBUT" },
-      { id:"DEBUT", type:"single_select", label:"Début de la douleur", options:["Brutal (coup de tonnerre)","Progressif","Récurrent (déjà connu)"], next:"CONTEXTE" },
-      { id:"CONTEXTE", type:"multi_select", label:"Contexte", options:[
-          {code:"fievre",label:"Fièvre"},
-          {code:"raideur",label:"Raideur de nuque"},
-          {code:"trauma",label:"Traumatisme récent"},
-          {code:"grossesse",label:"Grossesse/post-partum"},
-          {code:"anticoag",label:"Anticoagulants"}
-        ], next:"SYMPT"
-      },
-      { id:"SYMPT", type:"multi_select", label:"Signes associés", options:[
-          {code:"deficit",label:"Déficit neuro (faiblesse, parole/vision)"},
-          {code:"vomit",label:"Vomissements en jet"},
-          {code:"photoph",label:"Photophobie"}
-        ], next:"TRAIT"
-      },
-      { id:"TRAIT", type:"text", label:"Traitements pris (nom, dose, effet)", next:"SYNTHESE" },
-      { id:"SYNTHESE", type:"summary" }
-    ],
-    summary: (A) => lines([
-      ["MOTIF","Mal de tête"],
-      ["DÉBUT", A.DEBUT||"—"],
-      ["CONTEXTE", list(A.CONTEXTE)],
-      ["SIGNES ASSOCIÉS", list(A.SYMPT)],
-      ["TRAITEMENTS", A.TRAIT||"Aucun"]
-    ]),
-    extraAlerts: (A, any) => {
-      const arr=[]; 
-      if(A.DEBUT==="Brutal (coup de tonnerre)") arr.push("Céphalée d’installation brutale");
-      if(any(['raideur','trauma','grossesse','anticoag'])) arr.push("Contexte à risque");
-      if(any(['deficit'])) arr.push("Signes neurologiques associés");
-      return arr;
-    }
-  },
-
-  renouvellement: {
-    titre: "RENOUVELLEMENT D’ORDONNANCE",
-    nodes: [
-      { id:"INTRO", type:"info", text:"Ce questionnaire prépare le renouvellement. En cas d’urgence, appelez le 15.", next:"TOLERANCE" },
-      { id:"TOLERANCE", type:"text", label:"Tolérance / effets indésirables récents", next:"MESURES" },
-      { id:"MESURES", type:"text", label:"Mesures récentes si connues (TA, glycémie, poids, cholestérol…)", next:"INTERCURRENTS" },
-      { id:"INTERCURRENTS", type:"text", label:"Événements intercurrents (hospitalisation, nouveau traitement, symptôme nouveau…)", next:"SYNTHESE" },
-      { id:"SYNTHESE", type:"summary" }
-    ],
-    summary: (A) => lines([
-      ["MOTIF","Renouvellement d’ordonnance"],
-      ["TOLÉRANCE / EI", A.TOLERANCE||"—"],
-      ["MESURES RÉCENTES", A.MESURES||"—"],
-      ["ÉVÉNEMENTS INTERCURRENTS", A.INTERCURRENTS||"—"]
-    ]),
-    extraAlerts: (A) => {
-      const arr=[];
-      if((A.MESURES||"").match(/(TA|tension).*(2[0-9]{2}|1[8-9][0-9])/i)) arr.push("TA possiblement élevée");
-      if((A.MESURES||"").match(/glyc(émie)?.*(>?\s?3[0-9]{2}|30)\b/i)) arr.push("Glycémie possiblement élevée");
-      if((A.INTERCURRENTS||"").match(/(douleur thoracique|dyspn(ée|ee)|malaise|syncope)/i)) arr.push("Symptômes intercurrents à prioriser");
-      return arr;
-    }
-  }
+  douleur:{titre:"DOULEUR",nodes:[
+    {id:"INTRO",type:"info",text:"Ce questionnaire prépare votre consultation douleur. En cas d’urgence, appelez le 15.",next:"LOCALISATION"},
+    {id:"LOCALISATION",type:"single_select",label:"Où est la douleur ?",options:["Tête","Poitrine","Abdomen","Dos","Membre","Autre"],next:"DUREE"},
+    {id:"DUREE",type:"duration",label:"Depuis quand ?",next:"INTENSITE"},
+    {id:"INTENSITE",type:"number",label:"Intensité (0 à 10)",next:"CARACTERE"},
+    {id:"CARACTERE",type:"multi_select",label:"Caractère",options:["Brûlure","Piqûre","Crampes","Poids","Décharge","Pulsatile"],next:"SIGNES"},
+    {id:"SIGNES",type:"multi_select",label:"Signes associés",options:[{code:"fievre",label:"Fièvre"},{code:"dyspnee",label:"Essoufflement"},{code:"deficit",label:"Déficit neurologique"},{code:"pc",label:"Perte de connaissance"}],next:"TRAIT"},
+    {id:"TRAIT",type:"text",label:"Qu’avez-vous pris ? (nom, dose, effet)",next:"SYNTHESE"},
+    {id:"SYNTHESE",type:"summary"}
+  ],summary:(A)=>lines([
+    ["MOTIF","Douleur"],["LOCALISATION",A.LOCALISATION||"—"],["DURÉE",A.DUREE||"(non précisée)"],["INTENSITÉ",(A.INTENSITE??"—")+"/10"],
+    ["CARACTÈRE",list(A.CARACTERE)],["SIGNES ASSOCIÉS",list(A.SIGNES)],["TRAITEMENTS",A.TRAIT||"Aucun"]
+  ]),extraAlerts:(A,any)=>{const arr=[];if(parseFloat(A.INTENSITE)>=8)arr.push("Douleur intense ≥ 8/10");if(any(['dyspnee','deficit','pc']))arr.push("Signes d’alerte");if(A.LOCALISATION==="Poitrine"&&any(['dyspnee']))arr.push("Douleur thoracique + essoufflement");return arr;}},
+  cephalees:{titre:"MAL DE TÊTE",nodes:[
+    {id:"INTRO",type:"info",text:"Ce questionnaire prépare votre consultation pour céphalées. Appelez le 15 en cas d’urgence.",next:"DEBUT"},
+    {id:"DEBUT",type:"single_select",label:"Début de la douleur",options:["Brutal (coup de tonnerre)","Progressif","Récurrent (déjà connu)"],next:"CONTEXTE"},
+    {id:"CONTEXTE",type:"multi_select",label:"Contexte",options:[{code:"fievre",label:"Fièvre"},{code:"raideur",label:"Raideur de nuque"},{code:"trauma",label:"Traumatisme récent"},{code:"grossesse",label:"Grossesse/post-partum"},{code:"anticoag",label:"Anticoagulants"}],next:"SYMPT"},
+    {id:"SYMPT",type:"multi_select",label:"Signes associés",options:[{code:"deficit",label:"Déficit neuro"},{code:"vomit",label:"Vomissements en jet"},{code:"photoph",label:"Photophobie"}],next:"TRAIT"},
+    {id:"TRAIT",type:"text",label:"Traitements pris (nom, dose, effet)",next:"SYNTHESE"},
+    {id:"SYNTHESE",type:"summary"}
+  ],summary:(A)=>lines([["MOTIF","Mal de tête"],["DÉBUT",A.DEBUT||"—"],["CONTEXTE",list(A.CONTEXTE)],["SIGNES ASSOCIÉS",list(A.SYMPT)],["TRAITEMENTS",A.TRAIT||"Aucun"]]),extraAlerts:(A,any)=>{const arr=[];if(A.DEBUT==="Brutal (coup de tonnerre)")arr.push("Céphalée brutale");if(any(['raideur','trauma','grossesse','anticoag']))arr.push("Contexte à risque");if(any(['deficit']))arr.push("Signes neurologiques");return arr;}},
+  renouvellement:{titre:"RENOUVELLEMENT D’ORDONNANCE",nodes:[
+    {id:"INTRO",type:"info",text:"Ce questionnaire prépare le renouvellement. En cas d’urgence, appelez le 15.",next:"TOLERANCE"},
+    {id:"TOLERANCE",type:"text",label:"Tolérance / effets indésirables récents",next:"MESURES"},
+    {id:"MESURES",type:"text",label:"Mesures récentes si connues (TA, glycémie, poids, cholestérol…)",next:"INTERCURRENTS"},
+    {id:"INTERCURRENTS",type:"text",label:"Événements intercurrents",next:"SYNTHESE"},
+    {id:"SYNTHESE",type:"summary"}
+  ],summary:(A)=>lines([["MOTIF","Renouvellement d’ordonnance"],["TOLÉRANCE / EI",A.TOLERANCE||"—"],["MESURES RÉCENTES",A.MESURES||"—"],["ÉVÉNEMENTS INTERCURRENTS",A.INTERCURRENTS||"—"]]),extraAlerts:(A)=>{const arr=[];if((A.MESURES||"").match(/(TA|tension).*(2[0-9]{2}|1[8-9][0-9])/i))arr.push("TA possiblement élevée");if((A.MESURES||"").match(/glyc(émie)?.*(>?\s?3[0-9]{2}|30)\b/i))arr.push("Glycémie possiblement élevée");if((A.INTERCURRENTS||"").match(/(douleur thoracique|dyspn(ée|ee)|malaise|syncope)/i))arr.push("Symptômes intercurrents graves");return arr;}}
 };
 
-/*** MOTEUR COMMUN ***/
-const home=document.getElementById("home");
-const app=document.getElementById("questions");
-const printable=document.getElementById("printable");
-let CURRENT=null; let answers={}; let alerts=[];
+const home=document.getElementById("home"),app=document.getElementById("questions"),printable=document.getElementById("printable");let CURRENT=null,answers={},alerts=[];
 
-function startMotif(key){ CURRENT = MODELS[key]; home.style.display="none"; app.style.display="block"; printable.style.display="none"; answers={}; alerts=[]; goto("INTRO"); }
-function render(node){
-  app.innerHTML=""; const h=document.createElement("h2"); h.textContent=node.label || `Question — ${CURRENT.titre}`; app.appendChild(h);
-  if(node.type==="info"){ app.innerHTML+=`<div class="ok">${node.text}</div>`; footer([{label:"Commencer",action:()=>goto(node.next)},{label:"Changer de motif",action:()=>backHome(),secondary:true}]); return; }
-  let row=document.createElement("div"); row.className="row"; app.appendChild(row); let getVal=()=>null;
-  if(node.type==="duration"){ row.innerHTML='<input id="duree" placeholder="ex: 2 jours">'; getVal=()=>document.getElementById("duree").value; }
-  else if(node.type==="number"){ const i=document.createElement("input"); i.type="number"; i.step="0.1"; row.appendChild(i); getVal=()=>parseFloat(i.value); }
-  else if(node.type==="single_select"){ const s=document.createElement("select"); s.innerHTML='<option value="">— Sélectionner —</option>'+(node.options||[]).map(o=>`<option>${o}</option>`).join(""); row.appendChild(s); getVal=()=>s.value; }
-  else if(node.type==="multi_select"){ const wrap=document.createElement("div"); wrap.className="chips
+function startMotif(key){CURRENT=MODELS[key];home.style.display="none";app.style.display="block";printable.style.display="none";answers={};alerts=[];goto("INTRO");}
+function render(node){app.innerHTML="";const h=document.createElement("h2");h.textContent=node.label||`Question — ${CURRENT.titre}`;app.appendChild(h);
+if(node.type==="info"){app.innerHTML+=`<div class="ok">${node.text}</div>`;footer([{label:"Commencer",action:()=>goto(node.next)},{label:"Changer de motif",action:()=>backHome(),secondary:true}]);return;}
+const row=document.createElement("div");row.className="row";app.appendChild(row);let getVal=()=>null;
+if(node.type==="duration"){row.innerHTML='<input id="duree" placeholder="ex: 2 jours">';getVal=()=>document.getElementById("duree").value;}
+else if(node.type==="number"){const i=document.createElement("input");i.type="number";i.step="0.1";row.appendChild(i);getVal=()=>parseFloat(i.value);}
+else if(node.type==="single_select"){const s=document.createElement("select");s.innerHTML='<option value="">— Sélectionner —</option>'+ (node.options||[]).map(o=>`<option>${o}</option>`).join("");row.appendChild(s);getVal=()=>s.value;}
+else if(node.type==="multi_select"){const wrap=document.createElement("div");wrap.className="chips";(node.options||[]).forEach(o=>{const b=document.createElement("button");b.type="button";b.textContent=o.label||o;b.dataset.code=o.code||o;b.className="chip";b.onclick=()=>b.classList.toggle("selected");wrap.appendChild(b);});row.appendChild(wrap);getVal=()=>Array.from(row.querySelectorAll(".chip.selected")).map(b=>({code:b.dataset.code,label:b.textContent}));}
+else if(node.type==="text"){const t=document.createElement("textarea");t.rows=3;row.appendChild(t);getVal=()=>t.value.trim();}
+else if(node.type==="summary"){return renderSummary();}
+footer([{label:"Suivant",action:()=>{answers[node.id]=getVal();next(node,answers[node.id]);}},{label:"Changer de motif",action:()=>backHome(),secondary:true}]);}
+function footer(btns){const f=document.createElement("div");f.className="footer";btns.forEach(b=>{const el=document.createElement("button");el.className="
