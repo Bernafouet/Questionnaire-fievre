@@ -124,7 +124,7 @@ const MODELS = {
           {code:"toux",label:"Toux"},
           {code:"digestif",label:"Vomissements / diarrhée"},
           {code:"eruption",label:"Éruption cutanée"},
-          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
+          {code:"aucun",label:"Aucun"}
         ],
         next:"FACTEURS" },
 
@@ -136,7 +136,7 @@ const MODELS = {
           {code:"immuno",label:"Immunodépression"},
           {code:"age",label:"Âge > 75 ans"},
           {code:"chronique",label:"Maladie chronique"},
-          {code:"aucun",label:"Aucun"}                 /* déjà présent, conservé */
+          {code:"aucun",label:"Aucun"}
         ],
         next:"TRAIT" },
 
@@ -164,7 +164,7 @@ const MODELS = {
     }
   },
 
-  /* ----------- DOULEUR ----------- */
+  /* ----------- DOULEUR (AVEC BRANCHES) ----------- */
   douleur: {
     titre: "DOULEUR",
     nodes: [
@@ -175,19 +175,121 @@ const MODELS = {
       { id:"LOCALISATION", type:"single_select",
         label:"Où est la douleur ?",
         options:["Tête","Poitrine","Abdomen","Dos","Membre","Autre"],
-        next:"DUREE" },
+        next:"ROUTE_LOC" },
 
-      { id:"DUREE", type:"duration",
-        label:"Depuis quand ?",
-        placeholder:"ex : 3 jours",
-        next:"INTENSITE" },
+      /* ROUTEUR : dirige selon la localisation */
+      { id:"ROUTE_LOC", type:"router",
+        from:"LOCALISATION",
+        routes:{
+          "Abdomen":"ABD_SIEGE",
+          "Poitrine":"THX_DEBUT",
+          "default":"GEN_DUREE"
+        }
+      },
 
-      { id:"INTENSITE", type:"number",
+      /* ===== Branche ABDOMEN ===== */
+      { id:"ABD_SIEGE", type:"single_select",
+        label:"Où précisément ?",
+        options:["Épigastre","Hypochondre droit","Hypochondre gauche","Fosse iliaque droite","Fosse iliaque gauche","Hypogastre","Diffuse"],
+        next:"ABD_DEBUT" },
+
+      { id:"ABD_DEBUT", type:"single_select",
+        label:"Début de la douleur",
+        options:["Brutal","Progressif","Par crises"],
+        next:"ABD_INT" },
+
+      { id:"ABD_INT", type:"number",
         label:"Intensité (0 à 10)",
         step:"1",
-        next:"CARACTERE" },
+        next:"ABD_CAR" },
 
-      { id:"CARACTERE", type:"multi_select",
+      { id:"ABD_CAR", type:"multi_select",
+        label:"Caractère",
+        options:[
+          {code:"colique",label:"Colique / crampes"},
+          {code:"brulure",label:"Brûlure"},
+          {code:"poids",label:"Pesanteur"},
+          {code:"coup_poignard",label:"Coup de poignard"},
+          {code:"pulsatile",label:"Pulsatile"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"ABD_SIGNES_DIG" },
+
+      { id:"ABD_SIGNES_DIG", type:"multi_select",
+        label:"Signes digestifs associés",
+        options:[
+          {code:"nausee",label:"Nausées"},
+          {code:"vomit",label:"Vomissements"},
+          {code:"diarrhee",label:"Diarrhée"},
+          {code:"constip",label:"Constipation"},
+          {code:"recto",label:"Rectorragies / méléna"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"ABD_SIGNES_URI" },
+
+      { id:"ABD_SIGNES_URI", type:"multi_select",
+        label:"Signes urinaires associés",
+        options:[
+          {code:"brulure_mict",label:"Brûlures mictionnelles"},
+          {code:"pollakiurie",label:"Pollakiurie"},
+          {code:"hematurie",label:"Hématurie"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"ABD_SIGNES_GYN" },
+
+      { id:"ABD_SIGNES_GYN", type:"multi_select",
+        label:"Signes gynécologiques (si concerné·e)",
+        options:[
+          {code:"retard_regles",label:"Retard de règles"},
+          {code:"metror",label:"Métrorragies"},
+          {code:"leucor",label:"Leucorrhées"},
+          {code:"nonconcerne",label:"Non concerné"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"TRAIT" },
+
+      /* ===== Branche THORAX ===== */
+      { id:"THX_DEBUT", type:"single_select",
+        label:"Début de la douleur thoracique",
+        options:["Au repos","À l’effort","Brutal"],
+        next:"THX_CAR" },
+
+      { id:"THX_CAR", type:"multi_select",
+        label:"Caractère de la douleur",
+        options:[
+          {code:"oppression",label:"Oppression / serrement"},
+          {code:"brulure",label:"Brûlure rétro-sternale"},
+          {code:"poignard",label:"Coup de poignard / transfixiante"},
+          {code:"irradiation",label:"Irradiation bras/mâchoire/dos"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"THX_SIGNES" },
+
+      { id:"THX_SIGNES", type:"multi_select",
+        label:"Signes associés",
+        options:[
+          {code:"dyspnee",label:"Essoufflement"},
+          {code:"palpit",label:"Palpitations"},
+          {code:"malaise",label:"Malaise / syncope"},
+          {code:"sueurs",label:"Sueurs"},
+          {code:"toux",label:"Toux"},
+          {code:"fievre",label:"Fièvre"},
+          {code:"aucun",label:"Aucun"}
+        ],
+        next:"TRAIT" },
+
+      /* ===== Chemin GÉNÉRIQUE (autres localisations) ===== */
+      { id:"GEN_DUREE", type:"duration",
+        label:"Depuis quand ?",
+        placeholder:"ex : 3 jours",
+        next:"GEN_INT" },
+
+      { id:"GEN_INT", type:"number",
+        label:"Intensité (0 à 10)",
+        step:"1",
+        next:"GEN_CAR" },
+
+      { id:"GEN_CAR", type:"multi_select",
         label:"Caractère",
         options:[
           {code:"brulure",label:"Brûlure"},
@@ -195,41 +297,94 @@ const MODELS = {
           {code:"crampe",label:"Crampes"},
           {code:"poids",label:"Poids"},
           {code:"decharge",label:"Décharge"},
-          {code:"pulsatile",label:"Pulsatile"}
+          {code:"pulsatile",label:"Pulsatile"},
+          {code:"aucun",label:"Aucun"}
         ],
-        next:"SIGNES" },
+        next:"GEN_SIGNES" },
 
-      { id:"SIGNES", type:"multi_select",
+      { id:"GEN_SIGNES", type:"multi_select",
         label:"Signes associés",
         options:[
           {code:"fievre",label:"Fièvre"},
           {code:"dyspnee",label:"Essoufflement"},
           {code:"deficit",label:"Déficit neurologique"},
           {code:"pc",label:"Perte de connaissance"},
-          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
+          {code:"aucun",label:"Aucun"}
         ],
         next:"TRAIT" },
 
+      /* ===== Fin commune Douleur ===== */
       { id:"TRAIT", type:"text",
         label:"Qu’avez-vous pris ? (nom, dose, effet)",
         next:"SYNTHESE" },
 
       { id:"SYNTHESE", type:"summary" }
     ],
-    summary: (A)=> synthLines([
-      ["MOTIF", "Douleur"],
-      ["LOCALISATION", A.LOCALISATION || "—"],
-      ["DURÉE", A.DUREE || "(non précisée)"],
-      ["INTENSITÉ", (A.INTENSITE ?? "—")+"/10"],
-      ["CARACTÈRE", listLabels(A.CARACTERE)],
-      ["SIGNES ASSOCIÉS", listLabels(A.SIGNES)],
-      ["TRAITEMENTS", A.TRAIT || "Aucun"]
-    ]),
+
+    summary: (A)=> {
+      const loc = A.LOCALISATION || "—";
+      // Branche ABDOMEN
+      if(loc==="Abdomen"){
+        return synthLines([
+          ["MOTIF", "Douleur abdominale"],
+          ["SIÈGE", A.ABD_SIEGE || "—"],
+          ["DÉBUT", A.ABD_DEBUT || "—"],
+          ["INTENSITÉ", (A.ABD_INT ?? "—")+"/10"],
+          ["CARACTÈRE", listLabels(A.ABD_CAR)],
+          ["SIGNES DIGESTIFS", listLabels(A.ABD_SIGNES_DIG)],
+          ["SIGNES URINAIRES", listLabels(A.ABD_SIGNES_URI)],
+          ["SIGNES GYNÉCO", listLabels(A.ABD_SIGNES_GYN)],
+          ["TRAITEMENTS", A.TRAIT || "Aucun"]
+        ]);
+      }
+      // Branche THORAX
+      if(loc==="Poitrine"){
+        return synthLines([
+          ["MOTIF", "Douleur thoracique"],
+          ["DÉBUT", A.THX_DEBUT || "—"],
+          ["CARACTÈRE", listLabels(A.THX_CAR)],
+          ["SIGNES ASSOCIÉS", listLabels(A.THX_SIGNES)],
+          ["TRAITEMENTS", A.TRAIT || "Aucun"]
+        ]);
+      }
+      // Chemin générique
+      return synthLines([
+        ["MOTIF", "Douleur — Autre localisation"],
+        ["LOCALISATION", loc],
+        ["DURÉE", A.GEN_DUREE || "(non précisée)"],
+        ["INTENSITÉ", (A.GEN_INT ?? "—")+"/10"],
+        ["CARACTÈRE", listLabels(A.GEN_CAR)],
+        ["SIGNES ASSOCIÉS", listLabels(A.GEN_SIGNES)],
+        ["TRAITEMENTS", A.TRAIT || "Aucun"]
+      ]);
+    },
+
     extraAlerts: (A, any)=> {
       const arr=[];
-      if(parseFloat(A.INTENSITE)>=8) arr.push("Douleur intense ≥ 8/10");
-      if(any(['dyspnee','deficit','pc'])) arr.push("Signes d’alerte associés");
-      if(A.LOCALISATION==="Poitrine" && any(['dyspnee'])) arr.push("Douleur thoracique + essoufflement");
+      const loc = A.LOCALISATION;
+
+      // Généraux
+      if(parseFloat(A.GEN_INT)>=8 || parseFloat(A.ABD_INT)>=8) arr.push("Douleur intense ≥ 8/10");
+
+      // Abdomen : drapeaux rouges
+      if(loc==="Abdomen"){
+        if(any(['coup_poignard'])) arr.push("Douleur abdominale brutale / coup de poignard");
+        if((A.ABD_SIGNES_DIG||[]).some(o=>['recto'].includes(o.code))) arr.push("Sang dans les selles / méléna");
+        if((A.ABD_SIGNES_DIG||[]).some(o=>['vomit'].includes(o.code))) arr.push("Vomissements associés");
+        if((A.ABD_SIGNES_GYN||[]).some(o=>['retard_regles','metror'].includes(o.code))) arr.push("Douleur + retard de règles/métrorragies");
+      }
+
+      // Thorax : drapeaux rouges
+      if(loc==="Poitrine"){
+        if(any(['oppression'])) arr.push("Douleur constrictive");
+        if(any(['poignard'])) arr.push("Douleur transfixiante");
+        if(any(['dyspnee','malaise'])) arr.push("Dyspnée ou malaise associé");
+      }
+
+      // Généraux communs
+      if(any(['pc'])) arr.push("Perte de connaissance");
+      if(any(['dyspnee'])) arr.push("Essoufflement associé");
+
       return arr;
     }
   },
@@ -255,7 +410,7 @@ const MODELS = {
           {code:"trauma",label:"Traumatisme récent"},
           {code:"grossesse",label:"Grossesse/post-partum"},
           {code:"anticoag",label:"Anticoagulants"},
-          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
+          {code:"aucun",label:"Aucun"}
         ],
         next:"SYMPT" },
 
@@ -265,7 +420,7 @@ const MODELS = {
           {code:"deficit",label:"Déficit neuro (faiblesse, parole/vision)"},
           {code:"vomit",label:"Vomissements en jet"},
           {code:"photoph",label:"Photophobie"},
-          {code:"aucun",label:"Aucun"}                 /* <-- AJOUTÉ */
+          {code:"aucun",label:"Aucun"}
         ],
         next:"TRAIT" },
 
@@ -370,6 +525,15 @@ function renderNode(node){
     return;
   }
 
+  /* Routeur (logique conditionnelle) */
+  if(node.type==="router"){
+    const src = node.from;
+    const val = answers[src];
+    const routes = node.routes||{};
+    const target = routes[val] || routes["default"];
+    return goto(target);
+  }
+
   const row = document.createElement("div");
   row.className = "row";
   qEl.appendChild(row);
@@ -439,7 +603,7 @@ function backHome(){
 
 /* utilitaire pour tests de drapeaux dans les modèles */
 function any(codes){
-  const pools = [answers.SYMPT, answers.SIGNES, answers.CONTEXTE, answers.FACTEURS].filter(Boolean);
+  const pools = [answers.SYMPT, answers.SIGNES, answers.CONTEXTE, answers.FACTEURS, answers.ABD_CAR, answers.THX_CAR, answers.THX_SIGNES, answers.ABD_SIGNES_DIG, answers.ABD_SIGNES_URI, answers.ABD_SIGNES_GYN].filter(Boolean);
   const flat  = pools.flat();
   return flat.some(o=>codes.includes(o.code));
 }
