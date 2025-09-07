@@ -7,8 +7,7 @@
 <style>
   :root{
     --red:#b91c1c; --redbg:#fee2e2; --border:#e5e7eb; --fg:#111; --muted:#6b7280;
-    --hl-bg:#fef08a;          /* jaune clair pour surlignage intitulés */
-    --value-yellow:#ca8a04;   /* jaune ambré pour le texte des réponses */
+    --hl-bg:#fef08a; /* jaune clair pour surlignage des intitulés */
   }
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;margin:0;padding:24px;background:#f7f7f8;color:var(--fg)}
   .card{background:#fff;border:1px solid var(--border);border-radius:12px;max-width:880px;margin:0 auto 18px auto;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
@@ -30,18 +29,11 @@
   .flagreason{color:var(--red);font-weight:700}
   .ok{padding:10px 12px;border-radius:12px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;margin:10px 0;font-weight:600}
 
-  /* Synthèse : intitulés surlignés + valeurs en jaune */
+  /* Synthèse : intitulés en majuscules gras + surlignage jaune */
   .summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
   .sline{margin:4px 0;line-height:1.45}
-  .slabel{font-weight:800;background:var(--hl-bg);padding:2px 6px;border-radius:6px}
-  .svalue{color:var(--value-yellow);font-weight:700}
-
-  @media (prefers-color-scheme: dark){
-    body{background:#0b0c0e;color:#e5e7eb}
-    .card{background:#111317;border-color:#1f232a}
-    .tile{background:#111317}
-    .summary{background:#0f1216;border-color:#1f232a}
-  }
+  .slabel{font-weight:800;text-transform:uppercase;background:var(--hl-bg);padding:2px 6px;border-radius:4px}
+  .svalue{margin-left:4px}
 </style>
 </head>
 <body>
@@ -84,6 +76,18 @@
 <script>
 /*** PARAMÈTRES ***/
 const MSSANTE_TO = "nom.prenom@votre-cabinet.mssante.fr"; // <-- à personnaliser
+
+/*** UTILITAIRES ***/
+function list(arr){ return (arr && arr.length)? arr.map(x=>x.label).join(", ") : "Aucun"; }
+function lines(pairs){
+  return pairs.map(([k,v]) =>
+    `<div class="sline"><span class="slabel">${(k||"")}</span> : <span class="svalue">${escapeHTML(v)}</span></div>`
+  ).join("");
+}
+function escapeHTML(x){
+  if(x===undefined || x===null) return "";
+  return String(x).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
 
 /*** MODÈLES ***/
 const MODELS = {
@@ -241,114 +245,12 @@ const app=document.getElementById("questions");
 const printable=document.getElementById("printable");
 let CURRENT=null; let answers={}; let alerts=[];
 
-function startMotif(key){
-  CURRENT = MODELS[key];
-  home.style.display="none";
-  app.style.display="block";
-  printable.style.display="none";
-  answers={}; alerts=[];
-  goto("INTRO");
-}
-
+function startMotif(key){ CURRENT = MODELS[key]; home.style.display="none"; app.style.display="block"; printable.style.display="none"; answers={}; alerts=[]; goto("INTRO"); }
 function render(node){
-  app.innerHTML=""; const h=document.createElement("h2");
-  h.textContent=node.label || `Question — ${CURRENT.titre}`; app.appendChild(h);
-  if(node.type==="info"){
-    app.innerHTML+=`<div class="ok">${node.text}</div>`;
-    footer([{label:"Commencer",action:()=>goto(node.next)},{label:"Changer de motif",action:()=>backHome(),secondary:true}]); return;
-  }
+  app.innerHTML=""; const h=document.createElement("h2"); h.textContent=node.label || `Question — ${CURRENT.titre}`; app.appendChild(h);
+  if(node.type==="info"){ app.innerHTML+=`<div class="ok">${node.text}</div>`; footer([{label:"Commencer",action:()=>goto(node.next)},{label:"Changer de motif",action:()=>backHome(),secondary:true}]); return; }
   let row=document.createElement("div"); row.className="row"; app.appendChild(row); let getVal=()=>null;
   if(node.type==="duration"){ row.innerHTML='<input id="duree" placeholder="ex: 2 jours">'; getVal=()=>document.getElementById("duree").value; }
   else if(node.type==="number"){ const i=document.createElement("input"); i.type="number"; i.step="0.1"; row.appendChild(i); getVal=()=>parseFloat(i.value); }
   else if(node.type==="single_select"){ const s=document.createElement("select"); s.innerHTML='<option value="">— Sélectionner —</option>'+(node.options||[]).map(o=>`<option>${o}</option>`).join(""); row.appendChild(s); getVal=()=>s.value; }
-  else if(node.type==="multi_select"){ const wrap=document.createElement("div"); wrap.className="chips"; (node.options||[]).forEach(o=>{const b=document.createElement("button"); b.type="button"; b.textContent=o.label||o; b.dataset.code=o.code||o; b.className="chip"; b.onclick=()=>b.classList.toggle("selected"); wrap.appendChild(b);}); row.appendChild(wrap); getVal=()=>Array.from(row.querySelectorAll(".chip.selected")).map(b=>({code:b.dataset.code,label:b.textContent})); }
-  else if(node.type==="text"){ const t=document.createElement("textarea"); t.rows=3; row.appendChild(t); getVal=()=>t.value.trim(); }
-  else if(node.type==="summary"){ return renderSummary(); }
-  footer([
-    {label:"Suivant",action:()=>{answers[node.id]=normalizeValue(getVal()); next(node,answers[node.id]);}},
-    {label:"Changer de motif",action:()=>backHome(),secondary:true}
-  ]);
-}
-
-function normalizeValue(val){ return val; }
-function footer(btns){ const f=document.createElement("div"); f.className="footer"; btns.forEach(b=>{const el=document.createElement("button"); el.className="btn"+(b.secondary?" secondary":""); el.textContent=b.label; el.onclick=b.action; f.appendChild(el);}); app.appendChild(f); }
-function goto(id){ const n=(CURRENT.nodes||[]).find(x=>x.id===id); render(n); }
-function backHome(){ home.style.display="block"; app.style.display="none"; printable.style.display="none"; }
-
-function any(codes){
-  const all = [].concat(answers.SYMPT||[], answers.SIGNES||[], answers.CONTEXTE||[], answers.FACTEURS||[]);
-  return all.some(o => codes.includes(o.code));
-}
-
-function next(node,val){
-  let dest = node.next;
-  if(Array.isArray(dest)){
-    let fallback=null;
-    for(const r of dest){
-      if(r.else){ fallback=r.else; continue; }
-      if(r.if==="value>=40" && parseFloat(val)>=40) return goto(r.goto);
-    }
-    return goto(fallback);
-  }
-  goto(dest);
-}
-
-/*** Formatage synthèse ***/
-function list(arr){ return (arr && arr.length)? arr.map(x=>x.label).join(", ") : "Aucun"; }
-function lines(pairs){
-  // pairs = [[LABEL, value], ...]  → HTML formaté avec surlignage + texte jaune
-  return pairs.map(([k,v]) =>
-    `<div class="sline"><span class="slabel">${(k||"").toUpperCase()}</span> : <span class="svalue">${escapeHTML(v)}</span></div>`
-  ).join("");
-}
-function escapeHTML(x){
-  if(x===undefined || x===null) return "";
-  return String(x).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
-
-function renderSummary(){
-  const A = answers; // valeurs déjà “plates”
-  // compléter les drapeaux rouges selon le modèle
-  alerts = (CURRENT.extraAlerts && CURRENT.extraAlerts(A, any)) || [];
-
-  let html="";
-  if(alerts.length>0){
-    html += "<div class='flagbox'><div class='flagtitle'>⚠️ DRAPEAUX ROUGES</div>";
-    alerts.forEach(a=> html += "<div class='flagreason'>• "+escapeHTML(a)+"</div>");
-    html += "</div>";
-  } else {
-    html += "<div class='ok'>Aucun drapeau rouge détecté.</div>";
-  }
-
-  html += `<div class="summary" id="synthText">${CURRENT.summary(A, any)}</div>`;
-  html += `<div class="footer">
-      <button class="btn" id="btnCopy">Copier la synthèse</button>
-      <button class="btn" id="btnMSS">Envoyer via MSSanté</button>
-      <button class="btn" id="btnHome">Changer de motif</button>
-      <button class="btn" id="btnRestart">Recommencer</button>
-    </div>`;
-
-  printable.innerHTML = html;
-  printable.style.display="block";
-  app.style.display="none";
-
-  document.getElementById("btnCopy").onclick = ()=>{
-    const synth=document.getElementById("synthText").innerText;
-    navigator.clipboard.writeText(synth).then(()=>{alert("Synthèse copiée. Vous pouvez la coller dans Madeformed.");});
-  };
-  document.getElementById("btnMSS").onclick = ()=>{
-    // composer un mail texte (les styles ne passent pas par email)
-    const plain = document.getElementById("synthText").innerText.replace(/\s+\n/g,"\n");
-    const subject="Pré-consultation — "+CURRENT.titre;
-    const body=(alerts.length?("Drapeaux rouges: "+alerts.join(", ")+"\n\n"):"")+plain+"\n\n— Questionnaire pré-consultation";
-    const url="mailto:"+encodeURIComponent(MSSANTE_TO)
-      +"?subject="+encodeURIComponent(subject)
-      +"&body="+encodeURIComponent(body);
-    window.location.href=url;
-  };
-  document.getElementById("btnHome").onclick = ()=>{ alerts=[]; for (const k in answers) delete answers[k]; printable.style.display="none"; home.style.display="block"; };
-  document.getElementById("btnRestart").onclick = ()=>{ alerts=[]; for (const k in answers) delete answers[k]; printable.style.display="none"; app.style.display="block"; goto("INTRO"); };
-}
-</script>
-</body>
-</html>
+  else if(node.type==="multi_select"){ const wrap=document.createElement("div"); wrap.className="chips
