@@ -1,5 +1,8 @@
-<!doctype html><html lang="fr"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QUESTIONNAIRE AVANT CONSULTATION</title>
 <style>
 :root{--red:#b91c1c;--redbg:#fee2e2;--bd:#e5e7eb;--mut:#6b7280;--hl:#fef08a}
@@ -21,7 +24,9 @@ input,textarea,select{width:100%;padding:10px;border:1px solid #d1d5db;border-ra
 .summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
 .sline{margin:4px 0}.slabel{font-weight:800;text-transform:uppercase;background:var(--hl);padding:2px 6px;border-radius:4px}
 .svalue{margin-left:4px}
-</style></head><body>
+</style>
+</head>
+<body>
 <div class="card"><h1>QUESTIONNAIRE AVANT CONSULTATION</h1><div class="muted">Choisissez un motif. En cas d’urgence, appelez le 15.</div></div>
 
 <div id="home" class="card">
@@ -125,7 +130,7 @@ function start(key){ MODEL=MODELS[key]; ANS={}; alerts=[]; $('home').style.displ
 
 function go(id){
   const n = MODEL.nodes.find(x=>x[1]===id);
-  const box=$('q'); box.innerHTML=''; const h=document.createElement('h2'); h.textContent=labelOf(n); box.appendChild(h);
+  const box=$('q'); box.innerHTML=''; const h=document.createElement('h2'); h.textContent=n[2]; box.appendChild(h);
   if(n[0]==='info'){ box.insertAdjacentHTML('beforeend',`<div class="ok">${n[2]}</div>`); footer([{t:'Commencer',a:()=>go(n[3])},{t:'Changer de motif',a:home,sec:1}]); return; }
   const row=document.createElement('div'); row.className='row'; box.appendChild(row); let get=()=>null;
   if(n[0]==='duration'){row.innerHTML='<input id="d" placeholder="ex: 2 jours">'; get=()=>$('d').value;}
@@ -133,19 +138,14 @@ function go(id){
   if(n[0]==='single'){const s=document.createElement('select'); s.innerHTML='<option value="">— Sélectionner —</option>'+n[3].map(o=>`<option>${o}</option>`).join(''); row.appendChild(s); get=()=>s.value;}
   if(n[0]==='multi'){const wrap=document.createElement('div'); wrap.className='chips'; (n[3]||[]).forEach(o=>{const b=document.createElement('button'); b.type='button'; b.className='chip'; b.dataset.code=o[0]||o; b.textContent=o[1]||o; b.onclick=()=>b.classList.toggle('selected'); wrap.appendChild(b);}); row.appendChild(wrap); get=()=>Array.from(row.querySelectorAll('.chip.selected')).map(b=>({code:b.dataset.code,label:b.textContent}));}
   if(n[0]==='text'){const t=document.createElement('textarea'); t.rows=3; row.appendChild(t); get=()=>t.value.trim();}
-  footer([{t:'Suivant',a:()=>{ANS[n[1]]=get(); if(n[0]==='text'||n[0]==='multi'||n[0]==='single'||n[0]==='number'||n[0]==='duration'){ const next=nextOf(n); if(next==='FIN') return summary(); else return go(next);} }},{t:'Changer de motif',a:home,sec:1}]);
+  footer([{t:'Suivant',a:()=>{ANS[n[1]]=get(); if(nextOf(n)==="FIN") return summary(); else go(nextOf(n));}},{t:'Changer de motif',a:home,sec:1}]);
 }
-
-function labelOf(n){ return (n[0]==='info')?'Information': (n[2]||'Question'); }
 function nextOf(n){ return n[n.length-1]; }
 function footer(btns){ const f=document.createElement('div'); f.className='footer'; btns.forEach(b=>{const el=document.createElement('button'); el.className='btn'+(b.sec?' secondary':''); el.textContent=b.t; el.onclick=b.a; f.appendChild(el);}); $('q').appendChild(f); }
 function home(){ $('home').style.display='block'; $('q').style.display='none'; $('out').style.display='none'; }
-
 function any(A,codes){ const all=[].concat(ANS.SYMPT||[],ANS.SIG||[],ANS.CTX||[],ANS.FACTEURS||[]); return all.some(o=>codes.includes(o.code)); }
-
 function summary(){
-  alerts = (MODEL.alerts?MODEL.alerts(ANS):[]) || [];
-  let html='';
+  alerts=(MODEL.alerts?MODEL.alerts(ANS):[])||[]; let html='';
   if(alerts.length){ html+=`<div class="flagbox"><div class="flagtitle">⚠️ DRAPEAUX ROUGES</div>${alerts.map(a=>`<div class="flagreason">• ${esc(a)}</div>`).join('')}</div>`; }
   else html+='<div class="ok">Aucun drapeau rouge détecté.</div>';
   html+=`<div class="summary" id="syn">${MODEL.summary(ANS)}</div>
@@ -159,6 +159,7 @@ function summary(){
 }
 function copySyn(){ navigator.clipboard.writeText($('syn').innerText).then(()=>alert("Synthèse copiée. Vous pouvez la coller dans Madeformed.")); }
 function sendMSS(){ const body=(alerts.length?("Drapeaux rouges: "+alerts.join(", ")+"\n\n"):"")+$('syn').innerText+"\n\n— Questionnaire pré-consultation"; const url="mailto:"+encodeURIComponent(MSSANTE_TO)+"?subject="+encodeURIComponent("Pré-consultation — "+MODEL.titre)+"&body="+encodeURIComponent(body); location.href=url; }
-function restart(){ $('out').style.display='none'; $('q').style.display='block'; const first=MODEL.nodes[0][1]; ANS={}; alerts=[]; go(first); }
+function restart(){ $('out').style.display='none'; $('q').style.display='block'; ANS={}; alerts=[]; go(MODEL.nodes[0][1]); }
 </script>
-</body></html>
+</body>
+</html>
