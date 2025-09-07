@@ -174,7 +174,7 @@ const MODELS = {
 
       { id:"LOCALISATION", type:"single_select",
         label:"Où est la douleur ?",
-        options:["Tête","Poitrine","Abdomen","Dos","Membre","Autre"],
+        options:["Poitrine","Abdomen","Dos","Membre","Autre"], /* retiré: Tête */
         next:"ROUTE_LOC" },
 
       /* ROUTEUR : dirige selon la localisation */
@@ -187,10 +187,18 @@ const MODELS = {
         }
       },
 
-      /* ===== Branche ABDOMEN ===== */
+      /* ===== Branche ABDOMEN (libellés simples) ===== */
       { id:"ABD_SIEGE", type:"single_select",
-        label:"Où précisément ?",
-        options:["Épigastre","Hypochondre droit","Hypochondre gauche","Fosse iliaque droite","Fosse iliaque gauche","Hypogastre","Diffuse"],
+        label:"Où exactement dans le ventre ?",
+        options:[
+          "Haut du ventre au milieu",
+          "Haut du ventre à droite",
+          "Haut du ventre à gauche",
+          "Bas du ventre au milieu",
+          "Bas du ventre à droite",
+          "Bas du ventre à gauche",
+          "Tout le ventre"
+        ],
         next:"ABD_DEBUT" },
 
       { id:"ABD_DEBUT", type:"single_select",
@@ -199,7 +207,7 @@ const MODELS = {
         next:"ABD_INT" },
 
       { id:"ABD_INT", type:"number",
-        label:"Intensité (0 à 10)",
+        label:"Intensité (0 = pas de douleur, 10 = douleur maximale)",
         step:"1",
         next:"ABD_CAR" },
 
@@ -222,7 +230,7 @@ const MODELS = {
           {code:"vomit",label:"Vomissements"},
           {code:"diarrhee",label:"Diarrhée"},
           {code:"constip",label:"Constipation"},
-          {code:"recto",label:"Rectorragies / méléna"},
+          {code:"recto",label:"Sang dans les selles / noirceur des selles"},
           {code:"aucun",label:"Aucun"}
         ],
         next:"ABD_SIGNES_URI" },
@@ -230,9 +238,9 @@ const MODELS = {
       { id:"ABD_SIGNES_URI", type:"multi_select",
         label:"Signes urinaires associés",
         options:[
-          {code:"brulure_mict",label:"Brûlures mictionnelles"},
-          {code:"pollakiurie",label:"Pollakiurie"},
-          {code:"hematurie",label:"Hématurie"},
+          {code:"brulure_mict",label:"Brûlures en urinant"},
+          {code:"pollakiurie",label:"Envie d’uriner très souvent"},
+          {code:"hematurie",label:"Sang dans les urines"},
           {code:"aucun",label:"Aucun"}
         ],
         next:"ABD_SIGNES_GYN" },
@@ -241,8 +249,8 @@ const MODELS = {
         label:"Signes gynécologiques (si concerné·e)",
         options:[
           {code:"retard_regles",label:"Retard de règles"},
-          {code:"metror",label:"Métrorragies"},
-          {code:"leucor",label:"Leucorrhées"},
+          {code:"metror",label:"Saignements en dehors des règles"},
+          {code:"leucor",label:"Pertes vaginales anormales"},
           {code:"nonconcerne",label:"Non concerné"},
           {code:"aucun",label:"Aucun"}
         ],
@@ -252,15 +260,20 @@ const MODELS = {
       { id:"THX_DEBUT", type:"single_select",
         label:"Début de la douleur thoracique",
         options:["Au repos","À l’effort","Brutal"],
+        next:"THX_INT" },
+
+      { id:"THX_INT", type:"number",
+        label:"Intensité (0 = pas de douleur, 10 = douleur maximale)",
+        step:"1",
         next:"THX_CAR" },
 
       { id:"THX_CAR", type:"multi_select",
         label:"Caractère de la douleur",
         options:[
           {code:"oppression",label:"Oppression / serrement"},
-          {code:"brulure",label:"Brûlure rétro-sternale"},
+          {code:"brulure",label:"Brûlure derrière le sternum"},
           {code:"poignard",label:"Coup de poignard / transfixiante"},
-          {code:"irradiation",label:"Irradiation bras/mâchoire/dos"},
+          {code:"irradiation",label:"Douleur qui va vers bras / mâchoire / dos"},
           {code:"aucun",label:"Aucun"}
         ],
         next:"THX_SIGNES" },
@@ -285,7 +298,7 @@ const MODELS = {
         next:"GEN_INT" },
 
       { id:"GEN_INT", type:"number",
-        label:"Intensité (0 à 10)",
+        label:"Intensité (0 = pas de douleur, 10 = douleur maximale)",
         step:"1",
         next:"GEN_CAR" },
 
@@ -307,7 +320,7 @@ const MODELS = {
         options:[
           {code:"fievre",label:"Fièvre"},
           {code:"dyspnee",label:"Essoufflement"},
-          {code:"deficit",label:"Déficit neurologique"},
+          {code:"deficit",label:"Faiblesse d’un membre / trouble de la parole ou de la vision"},
           {code:"pc",label:"Perte de connaissance"},
           {code:"aucun",label:"Aucun"}
         ],
@@ -342,6 +355,7 @@ const MODELS = {
         return synthLines([
           ["MOTIF", "Douleur thoracique"],
           ["DÉBUT", A.THX_DEBUT || "—"],
+          ["INTENSITÉ", (A.THX_INT ?? "—")+"/10"],
           ["CARACTÈRE", listLabels(A.THX_CAR)],
           ["SIGNES ASSOCIÉS", listLabels(A.THX_SIGNES)],
           ["TRAITEMENTS", A.TRAIT || "Aucun"]
@@ -363,22 +377,23 @@ const MODELS = {
       const arr=[];
       const loc = A.LOCALISATION;
 
-      // Généraux
-      if(parseFloat(A.GEN_INT)>=8 || parseFloat(A.ABD_INT)>=8) arr.push("Douleur intense ≥ 8/10");
+      // Intensité élevée (toutes branches)
+      if(parseFloat(A.GEN_INT)>=8 || parseFloat(A.ABD_INT)>=8 || parseFloat(A.THX_INT)>=8)
+        arr.push("Douleur intense ≥ 8/10");
 
       // Abdomen : drapeaux rouges
       if(loc==="Abdomen"){
         if(any(['coup_poignard'])) arr.push("Douleur abdominale brutale / coup de poignard");
-        if((A.ABD_SIGNES_DIG||[]).some(o=>['recto'].includes(o.code))) arr.push("Sang dans les selles / méléna");
+        if((A.ABD_SIGNES_DIG||[]).some(o=>['recto'].includes(o.code))) arr.push("Sang dans les selles / noirceur des selles");
         if((A.ABD_SIGNES_DIG||[]).some(o=>['vomit'].includes(o.code))) arr.push("Vomissements associés");
-        if((A.ABD_SIGNES_GYN||[]).some(o=>['retard_regles','metror'].includes(o.code))) arr.push("Douleur + retard de règles/métrorragies");
+        if((A.ABD_SIGNES_GYN||[]).some(o=>['retard_regles','metror'].includes(o.code))) arr.push("Douleur + retard de règles / saignements");
       }
 
       // Thorax : drapeaux rouges
       if(loc==="Poitrine"){
         if(any(['oppression'])) arr.push("Douleur constrictive");
         if(any(['poignard'])) arr.push("Douleur transfixiante");
-        if(any(['dyspnee','malaise'])) arr.push("Dyspnée ou malaise associé");
+        if(any(['dyspnee','malaise'])) arr.push("Essoufflement ou malaise associé");
       }
 
       // Généraux communs
@@ -603,7 +618,12 @@ function backHome(){
 
 /* utilitaire pour tests de drapeaux dans les modèles */
 function any(codes){
-  const pools = [answers.SYMPT, answers.SIGNES, answers.CONTEXTE, answers.FACTEURS, answers.ABD_CAR, answers.THX_CAR, answers.THX_SIGNES, answers.ABD_SIGNES_DIG, answers.ABD_SIGNES_URI, answers.ABD_SIGNES_GYN].filter(Boolean);
+  const pools = [
+    answers.SYMPT, answers.SIGNES, answers.CONTEXTE, answers.FACTEURS,
+    answers.ABD_CAR, answers.THX_CAR, answers.THX_SIGNES,
+    answers.ABD_SIGNES_DIG, answers.ABD_SIGNES_URI, answers.ABD_SIGNES_GYN,
+    answers.GEN_CAR, answers.GEN_SIGNES
+  ].filter(Boolean);
   const flat  = pools.flat();
   return flat.some(o=>codes.includes(o.code));
 }
