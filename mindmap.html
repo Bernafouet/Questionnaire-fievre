@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mindmap – Questionnaires</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#fff;color:#111}
+  header{padding:14px 18px;border-bottom:1px solid #e5e7eb;position:sticky;top:0;background:#fff}
+  h1{font-size:20px;margin:0}
+  #graph{padding:16px;overflow:auto}
+  .hint{color:#6b7280;font-size:12px}
+</style>
+<!-- Viz.js pour rendre Graphviz dans le navigateur -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
+</head>
+<body>
+<header>
+  <h1>Mindmap des questionnaires (Fièvre, Douleur, Céphalées, Renouvellement)</h1>
+  <div class="hint">Astuce iPad : pince pour zoomer, et balayez horizontalement si besoin.</div>
+</header>
+<div id="graph"></div>
+
+<script>
+const dot = `digraph G {
+  rankdir=TB;
+  nodesep=0.35; ranksep=0.5;
+  node [shape=box style="rounded,filled" color=lightblue2 fontname="Helvetica" fontsize=10 fillcolor="white"];
+
+  // Fièvre
+  Fievre [label="Fièvre"];
+  F1 [label="Depuis quand ?"];
+  F2 [label="Température max (°C)"];
+  F3 [label="Évolution ? (continue / par pics / NSP)"];
+  F4 [label="Signes associés ?"];
+  F5 [label="Facteurs de risque ?"];
+  F6 [label="Traitements pris ?"];
+  Fievre -> F1 -> F2 -> F3 -> F4 -> F5 -> F6;
+
+  // Douleur
+  Douleur [label="Douleur"];
+  Dloc [label="Où est la douleur ? (Poitrine / Abdomen / Dos / Membre / Autre)"];
+  Douleur -> Dloc;
+
+  // Abdomen
+  Dabdo [label="Douleur abdominale"];
+  Dloc -> Dabdo;
+  AbdSiege [label="Siège (haut/bas milieu, droite, gauche ; tout le ventre)"];
+  AbdDebut [label="Début (brutal / progressif / par crises)"];
+  AbdInt [label="Intensité 0–10 (0=pas de douleur, 10=max)"];
+  AbdCar [label="Caractère (colique, brûlure, pesanteur, poignard, pulsatile, aucun)"];
+  AbdDig [label="Signes digestifs (nausées, vomissements, diarrhée, constipation, sang/noircissement selles, aucun)"];
+  AbdUri [label="Signes urinaires (brûlures, envies fréquentes, sang urines, aucun)"];
+  AbdGyn [label="Signes gynécologiques (retard règles, saignements, pertes, non concerné, aucun)"];
+  TraitAbd [label="Traitements pris ?"];
+  Dabdo -> AbdSiege -> AbdDebut -> AbdInt -> AbdCar -> AbdDig -> AbdUri -> AbdGyn -> TraitAbd;
+
+  // Poitrine
+  Dthx [label="Douleur thoracique"];
+  Dloc -> Dthx;
+  ThxDebut [label="Début (repos / effort / brutal)"];
+  ThxInt [label="Intensité 0–10 (0=pas de douleur, 10=max)"];
+  ThxCar [label="Caractère (oppression, brûlure rétro-sternale, poignard, irradiation, aucun)"];
+  ThxSignes [label="Signes associés (dyspnée, palpitations, malaise/syncope, sueurs, toux, fièvre, aucun)"];
+  TraitThx [label="Traitements pris ?"];
+  Dthx -> ThxDebut -> ThxInt -> ThxCar -> ThxSignes -> TraitThx;
+
+  // Autre localisation
+  Dautre [label="Douleur autre localisation"];
+  Dloc -> Dautre;
+  GenDur [label="Depuis quand ?"];
+  GenInt [label="Intensité 0–10 (0=pas de douleur, 10=max)"];
+  GenCar [label="Caractère (brûlure, piqûre, crampes, poids, décharge, pulsatile, aucun)"];
+  GenSignes [label="Signes associés (fièvre, dyspnée, déficit neuro, perte connaissance, aucun)"];
+  TraitGen [label="Traitements pris ?"];
+  Dautre -> GenDur -> GenInt -> GenCar -> GenSignes -> TraitGen;
+
+  // Céphalées
+  Ceph [label="Mal de tête"];
+  CephDeb [label="Début (brutal / progressif / récurrent)"];
+  CephCtx [label="Contexte (fièvre, raideur nuque, traumatisme, grossesse/post-partum, anticoagulants, aucun)"];
+  CephSig [label="Signes associés (déficit neuro, vomissements en jet, photophobie, aucun)"];
+  TraitCeph [label="Traitements pris ?"];
+  Ceph -> CephDeb -> CephCtx -> CephSig -> TraitCeph;
+
+  // Renouvellement
+  Renouv [label="Renouvellement d’ordonnance"];
+  Tol [label="Tolérance / effets indésirables"];
+  Mes [label="Mesures récentes (TA, glycémie, poids, cholestérol)"];
+  Evt [label="Événements intercurrents"];
+  Renouv -> Tol -> Mes -> Evt;
+}`;
+
+window.addEventListener('DOMContentLoaded', () => {
+  const viz = new Viz();
+  viz.renderSVGElement(dot).then(svg => {
+    document.getElementById('graph').appendChild(svg);
+  }).catch(err => {
+    document.getElementById('graph').innerHTML = "<p>Impossible d’afficher la mindmap (bloqueur ?). Essayez de recharger la page.</p>";
+    console.error(err);
+  });
+});
+</script>
+</body>
+</html>
